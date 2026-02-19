@@ -16,6 +16,32 @@ Not content — instructions for the skill-building phase.
 - `phlex` style pairs with: same hwc skills + any Phlex-specific component patterns
   from the import file
 
+## Testing Review Skill: System Test Conversion Workflow
+
+The `review-testing` agent should include a dedicated workflow for trimming excessive
+system tests and converting them to faster controller/integration tests.
+
+Two-phase approach (proven in production):
+
+**Phase 1 — Triage**
+Agent filters system tests by two signals:
+- Low churn: hasn't changed much (git log, commit frequency)
+- Low recency: hasn't been touched recently (last modified date)
+If *both* signals are negative (high churn AND recently changed) → skip, leave as-is.
+Otherwise → add to the TODO list for conversion.
+
+**Phase 2 — Convert**
+Agent works through the TODO list, converting each candidate to the appropriate type:
+- Testing request/response cycle, redirects, flash → controller test
+- Testing cross-controller flows, sessions → integration test
+- Testing real browser behavior, JS interaction → keep as system test, remove from list
+
+When building this skill, wire it as a sub-workflow of the review-testing agent,
+invocable standalone (e.g. `/jr-rails-review testing:convert-system-tests`) or
+as part of a full testing review pass.
+
+---
+
 ## Blog Posts to Fetch at Skill-Build Time
 
 Fetch these URLs during skill construction and extract relevant content into the
