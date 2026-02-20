@@ -71,6 +71,101 @@ end
 Real-world impact from Avo audit: memoizing `file_hash` → 1.64x less memory,
 1.44x faster; memoizing metaprogramming accessors → 12.48x less memory, 7.91x faster.
 
+### `Time.current` Over `Time.now`
+
+`Time.now` ignores Rails timezone configuration. Always use `Time.current`,
+`Time.zone.now`, or `n.hours.ago` / `n.days.from_now`.
+
+```ruby
+# BAD — ignores configured timezone
+record.update!(published_at: Time.now)
+
+# GOOD
+record.update!(published_at: Time.current)
+```
+
+**Signal:** Any occurrence of `Time.now` in Rails code. Automated:
+`Rails/TimeZone` RuboCop cop.
+
+### Ruby Idioms Worth Enforcing
+
+Small wins that reviewers should flag consistently:
+
+```ruby
+# gsub single character → tr (faster, more expressive)
+str.gsub('"', "'")   # BAD
+str.tr('"', "'")     # GOOD
+
+# delete single character → delete (faster than gsub)
+str.gsub('"', "")    # BAD
+str.delete('"')      # GOOD
+
+# filter.last → reverse.find (short-circuits)
+items.filter { |i| i.active? }.last   # BAD — scans everything
+items.reverse.find { |i| i.active? }  # GOOD
+
+# Dynamic finder → find_by
+User.find_by_email(email)   # BAD — metaprogramming, no IDE support
+User.find_by(email:)        # GOOD
+
+# params.merge!(key: val) → direct assignment
+params.merge!(format: "json")   # BAD — allocates new hash
+params[:format] = "json"        # GOOD
+
+# create_with for conditional assignment on find_or_create
+Conversation.find_or_create_by!(account:) do |c|  # BAD — verbose block
+  c.title = "default"
+  c.active = true
+end
+
+Conversation.create_with(title: "default", active: true)
+            .find_or_create_by!(account:)           # GOOD
+```
+
+### Control Coupling — Flag Arguments
+
+A boolean argument that changes a method's behavior means the method is doing
+two things. Extract to two methods or remove the flag entirely.
+
+```ruby
+# BAD — caller must know what `true` means; method does two things
+def build_directive(add_directives: false)
+  content = base_content
+  if add_directives
+    content += tool_directives
+  end
+  content
+end
+
+# GOOD — guard at the call site, or two methods
+def directive          = base_content
+def directive_with_tools = base_content + tool_directives
+
+# Or: extract the conditional to a private method
+def build_directive
+  base_content + (tools_enabled? ? tool_directives : "")
+end
+```
+
+### View Code in Models
+
+HTML construction, tag helpers, `image_tag`, `link_to`, or `content_tag`
+in model methods. Breaks the layer boundary and makes testing harder.
+
+```ruby
+# BAD — model building HTML
+def profile_links
+  tag.div(class: "flex") do
+    tag.a(email, href: "mailto:#{email}")
+  end
+end
+
+# GOOD — move to helper, ViewComponent, or presenter
+```
+
+**Signal:** `tag.`, `content_tag`, `link_to`, `image_tag`, `html_safe` in
+`app/models/`.
+
 ### Symbol to Proc Over Explicit Blocks
 
 When calling an argumentless method on each element, use `&:method_name`.

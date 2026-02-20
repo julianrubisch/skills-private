@@ -97,6 +97,51 @@ resolve("Comment") { |comment| [comment.card, anchor: dom_id(comment)] }
 # Now url_for(@comment) works correctly
 ```
 
+### Collection Fragment Caching
+
+Pass `cached: true` to collection renders for automatic multi-fetch caching.
+Works with any cache store that supports `read_multi`.
+
+```erb
+<%# Automatically cache-key per record, fetched in one round trip %>
+<%= render partial: "conversations/conversation",
+           collection: @conversations,
+           cached: true %>
+
+<%# Custom cache key (e.g. scope to current user) %>
+<%= render partial: "conversations/conversation",
+           collection: @conversations,
+           cached: ->(c) { [c, current_user] } %>
+```
+
+### Double Dispatch via Jobs for Cross-model Operations
+
+When a model needs to trigger creation/mutation of unrelated records, dispatch
+to a job rather than doing it inline. Decouples the models, makes the side
+effect explicit and async-safe.
+
+```ruby
+# Instead of model orchestrating directly:
+class Bot < ApplicationRecord
+  def observed!(conversation, observations)
+    observations.each { |o| Observation.create!(o.merge(bot: self)) }
+  end
+end
+
+# Double dispatch — model hands off to a job
+class Bot < ApplicationRecord
+  def observed!(conversation, observations)
+    CreateObservationsJob.perform_later(bot: self, conversation:, observations:)
+  end
+end
+
+class CreateObservationsJob < ApplicationJob
+  def perform(bot:, conversation:, observations:)
+    observations.each { |o| bot.observations.create!(o.merge(conversation:)) }
+  end
+end
+```
+
 ## Anti-patterns
 
 ### Service Objects
@@ -119,6 +164,33 @@ multi-step domain operations.
 
 **Fix:** Job calls a model method or DCI context; logic lives there.
 
+### Authorization Inline in Controllers
+
+**Problem:** Role/permission checks scattered in controller actions or
+`before_action` callbacks. Logic duplicated, untestable in isolation.
+
+```ruby
+# BAD — authorization logic in controller
+def show
+  @conversation =
+    if current_user.superadmin?
+      Conversation.unscoped.find(params[:id])
+    elsif current_user.admin?
+      current_account.conversations.find(params[:id])
+    else
+      current_user.conversations.find(params[:id])
+    end
+end
+
+# GOOD — scoping logic in Pundit policy scope
+def show
+  @conversation = policy_scope(Conversation).find(params[:id])
+  authorize @conversation
+end
+```
+
+**Fix:** Pundit policy + scope. All authorization logic in one testable class.
+
 ### Fat Models
 
 **Problem:** All logic pulled into the model because "skinny controller, fat model"
@@ -137,5 +209,9 @@ orchestration (mailers, jobs, external calls) out of models entirely.
 - Jobs should be thin dispatchers — logic belongs in the domain layer
 - Ask of every callback: own state change, or side effect? Side effects belong in the caller
 - Prefer named domain objects (nouns) over procedural service objects (verb + "Service")
+- A model reaching out to create/destroy records in unrelated models is a SRP violation
+- All authorization scoping belongs in a Pundit policy scope, not in controller actions
+- `Current.*` in a model is a hidden request-context dependency — flag it
+- Collection renders with `cached: true` cost almost nothing and compound fast
 
 <!-- Add your own architectural rules below -->
