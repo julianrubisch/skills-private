@@ -139,6 +139,41 @@ target files listed. Ordered by recency — more recent = higher trust for curre
   https://blog.cloud66.com/the-ultimate-guide-to-implementing-hotwired-and-turbo-in-a-rails-application
   _Turbo Drive/Frames/Streams, morphing, modal validation, caching — well covered by hwc skills already_
 
+## Ruby Science Smells — Priority Order
+
+At skill-build time, ensure every smell below exists in `smells.md` with a
+Ruby Science link. The review agent should surface findings **in this priority
+order** — highest priority first.
+
+| Priority | Smell | Ruby Science | Status in smells.md |
+|----------|-------|--------------|----------------------|
+| 1 | Divergent Change | https://thoughtbot.com/ruby-science/divergent-change.html | ✅ exists — add link |
+| 2 | Shotgun Surgery | https://thoughtbot.com/ruby-science/shotgun-surgery.html | ✅ exists — add link |
+| 3 | Feature Envy | https://thoughtbot.com/ruby-science/feature-envy.html | ✅ exists — add link |
+| 4 | Case Statement | https://thoughtbot.com/ruby-science/case-statement.html | ✅ exists as "Long Case Statement" — align name, add link |
+| 5 | Long Parameter List | https://thoughtbot.com/ruby-science/long-parameter-list.html | ✅ exists as "Too Many Parameters" — align name, add link |
+| 6 | Large Class | https://thoughtbot.com/ruby-science/large-class.html | ✅ exists — add link |
+| 7 | Callback | https://thoughtbot.com/ruby-science/callback.html | ❌ missing — add entry |
+
+**Build instructions:**
+- Fetch each URL and merge any Ruby Science content that extends what's already
+  in smells.md. Don't replace existing entries — augment them.
+- Add `_[Ruby Science →](url)_` link at the end of each smell's description.
+- The Callback smell needs a full new entry. Ruby Science covers callbacks as a
+  smell when they increase complexity or introduce hidden side effects — fetch
+  the page and distill into smells.md.
+- When the review agent reports findings, order them by this priority table.
+  If only one smell is present, still cite its priority level.
+
+---
+
+## Ruby Science Refactorings
+
+*Paste the refactoring list here when available. Map each to the relevant
+`import/refactorings/` file or flag as missing.*
+
+---
+
 ## Symlink Reminder
 
 Skills are not yet symlinked into `~/.claude/skills/`. Do this after the first
