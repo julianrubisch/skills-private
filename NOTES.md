@@ -167,10 +167,41 @@ order** — highest priority first.
 
 ---
 
-## Ruby Science Refactorings
+## Ruby Science Refactorings — Priority Order
 
-*Paste the refactoring list here when available. Map each to the relevant
-`import/refactorings/` file or flag as missing.*
+At skill-build time, ensure every refactoring below has an entry in
+`import/refactorings/`. The review agent should recommend fixes **in this
+priority order** when multiple apply.
+
+| Priority | Refactoring | Ruby Science | Status |
+|----------|-------------|--------------|--------|
+| 1 | Replace Conditional with Polymorphism | https://thoughtbot.com/ruby-science/replace-conditional-with-polymorphism.html | ❌ missing |
+| 2 | Replace Conditional with Null Object | https://thoughtbot.com/ruby-science/replace-conditional-with-null-object.html | ❌ missing |
+| 3 | Introduce Form Object | https://thoughtbot.com/ruby-science/introduce-form-object.html | ⚠️ patterns.md has Form Objects — create refactoring file cross-referencing it |
+| 4 | Replace Subclasses with Strategies | https://thoughtbot.com/ruby-science/replace-subclasses-with-strategies.html | ❌ missing |
+| 5 | Replace Mixin with Composition | https://thoughtbot.com/ruby-science/replace-mixin-with-composition.html | ❌ missing |
+| 6 | Extract Validator | https://thoughtbot.com/ruby-science/extract-validator.html | ⚠️ patterns.md has Rule Objects (related but distinct) — create refactoring file, note the overlap |
+| 7 | Introduce Parameter Object | https://thoughtbot.com/ruby-science/introduce-parameter-object.html | ⚠️ patterns.md has Value Objects (related but distinct) — create refactoring file, clarify difference |
+| 8 | Replace Callback with Method | https://thoughtbot.com/ruby-science/replace-callback-with-method.html | ⚠️ coding-classic.md and review-architecture.md cover callbacks — create refactoring file cross-referencing both |
+
+**Build instructions:**
+- Fetch each URL and create a numbered file in `import/refactorings/`
+  following the template in `000-template.md`.
+- For ⚠️ entries: link to the existing pattern/section rather than duplicating.
+  The refactoring file answers "how to get from bad to good"; patterns.md
+  answers "what good looks like."
+- Add `_[Ruby Science →](url)_` to each refactoring file.
+- When the review agent proposes a fix, prefer refactorings higher in this list
+  when more than one applies to a given smell.
+
+**Smell → refactoring mapping** (for review agent wiring):
+- Divergent Change → Replace Conditional with Polymorphism, Replace Subclasses with Strategies
+- Shotgun Surgery → Replace Conditional with Polymorphism, Introduce Parameter Object
+- Feature Envy → Extract Validator, Introduce Form Object
+- Case Statement → Replace Conditional with Polymorphism, Replace Conditional with Null Object
+- Long Parameter List → Introduce Parameter Object
+- Large Class → Introduce Form Object, Replace Mixin with Composition
+- Callback → Replace Callback with Method
 
 ---
 
