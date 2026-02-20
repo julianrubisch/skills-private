@@ -42,6 +42,21 @@ as part of a full testing review pass.
 
 ---
 
+## From Avo Performance Review
+
+- `active_storage-blurhash` gem (extracted by user from Avo review) → add to
+  `patterns.md` under Active Storage and to `coding-classic.md` preferred stack.
+  Repo: https://github.com/avo-hq/active_storage-blurhash
+
+- Lazy loading images, explicit width/height for layout shift, blurhash placeholders,
+  `<picture>` tag / next-gen image formats → frontend concerns, defer to hwc-* skills.
+  Rails-side hook: `preload_link_tag` for hero images is already in review-performance.md.
+
+- The 4-section audit framework (Frontend / Database / Ruby / Environment) is now
+  in review-performance.md and should be the scaffolding for the performance review agent.
+
+---
+
 ## Blog Posts to Fetch at Skill-Build Time
 
 Fetch these URLs during skill construction and extract relevant content into the

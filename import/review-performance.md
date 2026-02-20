@@ -1,5 +1,35 @@
 # Performance Review Reference
 
+## Audit Framework
+
+A performance review has four sections — work through them in order:
+
+1. **Frontend** — everything after HTML leaves the server (Lighthouse, images, lazy loading, preloading)
+2. **Database** — I/O between app and DB (N+1, indexes, query count, eager loading)
+3. **Ruby/Memory** — timing and memory benchmarks of application code
+4. **Environment** — app server config, cache stores, load testing
+
+### Tooling
+
+Add to bundle for profiling (remove after audit):
+
+| Concern | Gem |
+|---------|-----|
+| N+1 detection | `prosopite` |
+| Request profiling | `rack-mini-profiler` |
+| Memory profiling | `memory_profiler` |
+| CPU profiling | `stackprof`, `ruby-prof` |
+| Require-time memory | `derailed_benchmarks` |
+| Process memory | `get_process_mem` |
+
+Global installs:
+- `fasterer` — Ruby benchmark linting
+- `bumbler` — application load time by require (`bumbler -t 50`)
+
+Load testing: `oha`, `wrk`, or `k6` (cloud). Example: `oha -q 2 -z 20s --disable-keepalive --latency-correction`
+
+---
+
 ## Patterns
 
 ### HTTP Caching with Conditional GET
@@ -67,6 +97,58 @@ class Card < ApplicationRecord
   belongs_to :board, touch: true
 end
 # Comment update → card.updated_at changes → board.updated_at changes → cache busted
+```
+
+### `.size` vs `.count` on Loaded Relations
+
+If a relation has already been loaded, count it in memory. `.count` fires a
+new SQL query regardless.
+
+```ruby
+@posts = Post.all
+@posts.count  # BAD — new COUNT query
+@posts.size   # GOOD — counts in memory if already loaded
+```
+
+Only applies when the relation is actually used downstream. If you never
+iterate `@posts`, use `Post.count` directly.
+
+### Turbo Frame Lazy Loading for Expensive Sub-views
+
+Associations shown on a show page (e.g. a user's posts, a project's tasks)
+don't need to be in the initial response. Wrap them in a lazy Turbo Frame.
+
+```erb
+<%# Renders a spinner, then fetches content separately %>
+<%= turbo_frame_tag "user_posts", src: user_posts_path(@user), loading: :lazy %>
+```
+
+This defers the DB query and rendering to a separate request, improving
+initial response time and perceived performance.
+
+### Preloading Hero Images
+
+Add a `<link rel="preload">` for the most prominent image on a show/edit page
+to improve Largest Contentful Paint.
+
+```erb
+<%# In layout or view %>
+<%= preload_link_tag url_for(@resource.cover_image), as: :image %>
+```
+
+### ViewComponent Collection Rendering
+
+Use `render ComponentName.with_collection(items)` instead of iterating with
+`each`. ViewComponent's collection rendering is significantly faster.
+
+```ruby
+# GOOD
+<%= render Avo::Index::GridItemComponent.with_collection(@resources) %>
+
+# BAD — renders each component separately
+<% @resources.each do |resource| %>
+  <%= render Avo::Index::GridItemComponent.new(resource: resource) %>
+<% end %>
 ```
 
 ### Eager Loading Associations
@@ -166,6 +248,21 @@ def index
   @users = User.includes(avatar_attachment: :blob)
 end
 ```
+
+ActiveStorage N+1 has two levels — the `Attachment` record and the `Blob` record.
+ActiveStorage provides scoped helpers for bulk-loading:
+
+```ruby
+# For specific attachments
+User.with_attached_avatar          # eager loads avatar + blob
+Post.with_attached_images          # eager loads images + blobs
+
+# In an index action
+@users = User.all.with_attached_avatar.with_attached_cover
+```
+
+Detection tools: `prosopite` middleware (preferred), or `strict_loading!` on
+the relation to surface unloaded associations with exceptions during development.
 
 **Signal:** Bullet gem warnings, or `pg_stat_statements` showing the same
 query repeated N times with different ID values.

@@ -71,6 +71,54 @@ end
 Real-world impact from Avo audit: memoizing `file_hash` → 1.64x less memory,
 1.44x faster; memoizing metaprogramming accessors → 12.48x less memory, 7.91x faster.
 
+### Symbol to Proc Over Explicit Blocks
+
+When calling an argumentless method on each element, use `&:method_name`.
+More idiomatic and slightly more readable.
+
+```ruby
+# BAD
+resources.min_by { |r| r.model_key }
+items.map { |i| i.name }
+
+# GOOD
+resources.min_by(&:model_key)
+items.map(&:name)
+```
+
+### Safe Navigation Over `rescue nil`
+
+`rescue nil` silences all exceptions, not just `NoMethodError`. It hides bugs.
+
+```ruby
+# BAD — swallows any exception
+value = object.some_method rescue nil
+
+# GOOD — only handles nil receiver
+value = object&.some_method
+```
+
+### Memoize `self.class.name` Derivations
+
+Any method that calls `self.class.name`, `.demodulize`, `.underscore`, or
+similar string operations on the class is a candidate for memoization —
+class names don't change at runtime.
+
+```ruby
+# BAD — allocates strings on every call
+def type
+  self.class.name.demodulize.underscore.gsub("_field", "")
+end
+
+# GOOD — ~7-15x faster, ~10-14x less memory (benchmarked)
+def type
+  @type ||= self.class.name.demodulize.underscore.gsub("_field", "")
+end
+```
+
+**Signal:** Any method body containing `self.class.name` without `||=`.
+These are especially impactful in classes instantiated per-row on index pages.
+
 ## Heuristics
 <!-- Rules of thumb, judgment calls -->
 
