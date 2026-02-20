@@ -1,70 +1,13 @@
 # Security Review Reference
 
-## Patterns
-
-### XSS Prevention — Escape Before Marking Safe
-
-```ruby
-# GOOD — escape first, then mark safe
-def formatted_content(text)
-  simple_format(h(text)).html_safe
-end
-```
-
-Never call `.html_safe` on user-supplied content directly.
-
-### SSRF Protection — Pin DNS Resolution
-
-```ruby
-def fetch_safely(url)
-  uri = URI.parse(url)
-  ip  = Resolv.getaddress(uri.host)
-
-  raise "Private IP" if private_ip?(ip)
-
-  Net::HTTP.start(uri.host, uri.port, ipaddr: ip) { |http| http.get(uri.path) }
-end
-
-def private_ip?(ip)
-  ip.start_with?("127.", "10.", "192.168.") ||
-    ip.match?(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)
-end
-```
-
-Resolve DNS once, pin the IP to prevent TOCTOU attacks.
-
-### Content Security Policy
-
-```ruby
-# config/initializers/content_security_policy.rb
-Rails.application.configure do
-  config.content_security_policy do |policy|
-    policy.default_src :self
-    policy.script_src  :self
-    policy.style_src   :self, :unsafe_inline
-    policy.base_uri    :none
-    policy.form_action :self
-    policy.frame_ancestors :self
-  end
-end
-```
-
-### ActionText Sanitization
-
-```ruby
-# config/initializers/action_text.rb
-Rails.application.config.after_initialize do
-  ActionText::ContentHelper.allowed_tags = %w[
-    strong em a ul ol li p br h1 h2 h3 h4 blockquote
-  ]
-end
-```
-
-Restrict allowed tags explicitly — don't rely on ActionText defaults.
+Diagnostic layer — what to flag, how severe, and why. Prescriptive patterns
+(how to write secure code) live in shared/security.md.
 
 ## Anti-patterns
 
 ### SQL Injection via String Interpolation
+
+**Severity: Critical**
 
 ```ruby
 # BAD
@@ -72,56 +15,73 @@ User.where("name = '#{params[:name]}'")
 
 # GOOD
 User.where(name: params[:name])
-User.where("name = ?", params[:name])
 ```
 
+**Signal:** String interpolation inside `.where(...)`, `.order(...)`,
+`.select(...)`, or any raw SQL call.
+
 ### Mass Assignment Without Strong Parameters
+
+**Severity: High**
 
 ```ruby
 # BAD
 User.update(params[:user])
 
 # GOOD
-User.update(user_params)
-
-def user_params
-  params.require(:user).permit(:name, :email)
-end
+User.update(user_params)  # via permit(...)
 ```
+
+**Signal:** `params[:model]` passed directly to AR methods without `.permit`.
+
+### Missing Authorization Scope
+
+**Severity: High**
+
+**Problem:** Records looked up by ID alone without verifying ownership.
+Any authenticated user can access any record.
+
+```ruby
+# BAD
+@card = Card.find(params[:id])
+
+# GOOD
+@card = Current.account.cards.find(params[:id])
+```
+
+**Signal:** Bare `Model.find(params[:id])` in controllers without a
+preceding scope or Pundit `authorize` call.
 
 ### Calling `.html_safe` on User Input
 
-Any string from user input, database, or external API must be escaped before
-rendering. `.html_safe` is a declaration that you've already done this — not
-a way to force rendering.
+**Severity: High**
 
-### Missing Authorization Checks
+Any string from user input, the database, or an external API must be
+escaped before `.html_safe`. Grep for it in every PR.
 
-**Signal:** Controller actions that load records without checking ownership
-or permissions. Any action reachable without authorization that operates on
-a user-scoped resource.
+**Signal:** `.html_safe` on a string that wasn't produced by a Rails helper.
 
-**Fix:** Scope queries to the current user or account. Use Pundit policies
-for non-trivial authorization logic.
+### Missing Content Security Policy
 
-```ruby
-# BAD — any authenticated user can edit any card
-def edit
-  @card = Card.find(params[:id])
-end
+**Severity: Medium**
 
-# GOOD — scoped to current account
-def edit
-  @card = Current.account.cards.find(params[:id])
-end
-```
+**Signal:** No CSP initializer, or a permissive one with `unsafe-eval`
+or wildcard `*` sources.
+
+### Unprotected External URL Fetching
+
+**Severity: High**
+
+**Signal:** `Net::HTTP`, `HTTParty`, `Faraday`, or `open-uri` called with
+a user-supplied URL without DNS pinning or IP range checks.
+
+**Fix:** See SSRF pattern in shared/security.md.
 
 ## Heuristics
 
-- Never interpolate user input into SQL strings
-- Every `find` on a sensitive resource should be scoped to the current user/account
-- `.html_safe` is a code smell — grep for it in PRs and verify each one
+- Every `find(params[:id])` without a scope is a potential IDOR — flag it
+- `.html_safe` is a code smell in PRs — verify each one
 - CSP violations in logs are worth investigating, not dismissing
-- External URL fetching requires SSRF protection
+- Check ActionText allowed_tags in any app using rich text
 
-<!-- Add your own security rules below -->
+<!-- Add your own security review heuristics below -->

@@ -4,26 +4,69 @@
 
 ### HTTP Caching with Conditional GET
 
-Use `fresh_when` for ETags + Last-Modified in one call. Use `expires_in` for
-time-based expiry on public content. Always scope ETags to the current user
-to prevent cache leaks across accounts.
+Three separate `etag` concerns — keep them distinct:
 
 ```ruby
-# GOOD — ETag + Last-Modified, user-scoped
-class ArticlesController < ApplicationController
-  etag { current_user&.id }
+# 1. Global version buster — bump "v1" to invalidate all ETags app-wide
+class ApplicationController < ActionController::Base
+  etag { "v1" }
+end
 
+# 2. User-scope guard — prevents serving cached content across accounts
+class ApplicationController < ActionController::Base
+  etag { current_user&.id }
+end
+
+# 3. Per-action ETags — record-based (show) and collection-based (index)
+class CardsController < ApplicationController
   def show
-    @article = Article.find(params[:id])
-    fresh_when(@article)
+    @card = Card.find(params[:id])
+    fresh_when etag: [@card, Current.user.timezone]
+    # Timezone must be in ETag: times render server-side in user's timezone
+  end
+
+  def index
+    @cards = @board.cards.preloaded
+    fresh_when etag: [@cards, @board.updated_at]
   end
 end
+```
 
-# GOOD — time-based expiry for public, shared content
+Use `expires_in` for time-based expiry on public, shared content (no user context):
+
+```ruby
 def index
   @articles = Article.published
-  expires_in(15.minutes, public: true)
+  expires_in 15.minutes, public: true
 end
+```
+
+### Fragment and Russian Doll Caching
+
+Cache partials at the fragment level. Nest cache blocks for automatic
+invalidation propagated via `touch: true`.
+
+```erb
+<%# Russian doll: board cache invalidates when any card changes %>
+<% cache @board do %>
+  <% @board.cards.each do |card| %>
+    <% cache card do %>
+      <%= render card %>
+    <% end %>
+  <% end %>
+<% end %>
+```
+
+```ruby
+# touch: true propagates updated_at up the association chain
+class Comment < ApplicationRecord
+  belongs_to :card,  touch: true
+end
+
+class Card < ApplicationRecord
+  belongs_to :board, touch: true
+end
+# Comment update → card.updated_at changes → board.updated_at changes → cache busted
 ```
 
 ### Eager Loading Associations
@@ -56,8 +99,8 @@ end
 For cross-table full-text search, a materialized view with GIN index outperforms
 JOIN-based `pg_search` by ~300x on large datasets. Manage with the `scenic` gem.
 
-```ruby
-# db/views/searchable_posts_v01.sql
+```sql
+-- db/views/searchable_posts_v01.sql
 SELECT posts.id,
        to_tsvector('english',
          coalesce(posts.title, '') || ' ' ||
@@ -69,7 +112,9 @@ JOIN authors ON authors.id = posts.author_id
 LEFT JOIN taggings ON taggings.post_id = posts.id
 LEFT JOIN tags ON tags.id = taggings.tag_id
 GROUP BY posts.id, posts.title, authors.name
+```
 
+```ruby
 # Migration
 add_index :searchable_posts, :search_vector, using: :gin
 ```
@@ -99,79 +144,6 @@ FROM pg_statio_user_tables
 WHERE idx_blks_read + idx_blks_hit > 0
 ORDER BY index_efficiency ASC
 LIMIT 10;
-```
-
-### Caching Strategies
-
-**HTTP caching** with ETags:
-```ruby
-fresh_when etag: [@card, Current.user.timezone]
-```
-
-**Fragment caching:**
-```erb
-<% cache card do %>
-  <%= render card %>
-<% end %>
-```
-
-**Russian doll caching:**
-```erb
-<% cache @board do %>
-  <% @board.cards.each do |card| %>
-    <% cache card do %>
-      <%= render card %>
-    <% end %>
-  <% end %>
-<% end %>
-```
-
-**Cache invalidation** via `touch: true`:
-```ruby
-class Card < ApplicationRecord
-  belongs_to :board, touch: true
-end
-```
-
-### Fragment and Russian Doll Caching
-
-Cache partials at the fragment level. Nest cache blocks for automatic invalidation
-via `touch: true` on associations.
-
-```erb
-<%# Russian doll: outer invalidates when inner changes %>
-<% cache @board do %>
-  <% @board.cards.each do |card| %>
-    <% cache card do %>
-      <%= render card %>
-    <% end %>
-  <% end %>
-<% end %>
-```
-
-```ruby
-# touch: true propagates updated_at up the chain
-class Comment < ApplicationRecord
-  belongs_to :card,  touch: true
-end
-
-class Card < ApplicationRecord
-  belongs_to :board, touch: true
-end
-```
-
-```ruby
-# Global cache buster in ApplicationController
-class ApplicationController < ActionController::Base
-  etag { "v1" }   # bump to invalidate all ETags
-end
-
-# Per-action, timezone-aware ETag
-def show
-  @card = Card.find(params[:id])
-  fresh_when etag: [@card, Current.user.timezone]
-  # Times render server-side in user's timezone — timezone must be in ETag
-end
 ```
 
 ## Anti-patterns
@@ -204,11 +176,11 @@ query repeated N times with different ID values.
 database, even when the content hasn't changed.
 
 **Signal:** High-traffic index or show actions with no `fresh_when`,
-`expires_in`, or HTTP cache headers in the response.
+`expires_in`, or cache headers in the response.
 
-**Fix:** Add `fresh_when(@record)` for record-based pages, `expires_in` for
-time-stable public pages. Always add `etag { current_user&.id }` at the
-controller level to prevent cross-user cache leaks.
+**Fix:** `fresh_when(@record)` for record-based pages, `expires_in` for
+time-stable public pages. Always scope ETags to `current_user&.id` to prevent
+cross-user cache leaks.
 
 ### Sequential Scans on Large Tables
 
@@ -221,12 +193,11 @@ on tables filtered by date range.
 
 ### Async Queries Without Connection Pool Awareness
 
-**Problem:** `load_async` borrows an extra DB connection. With Puma +
-Sidekiq on a small connection pool, this causes `ConnectionTimeoutError`
-under load.
+**Problem:** `load_async` borrows an extra DB connection. With Puma + Solid Queue
+on a small pool, this causes `ConnectionTimeoutError` under load.
 
 **Fix:** Size the pool to account for async usage:
-`pool = puma_threads + sidekiq_concurrency + async_headroom`
+`pool = puma_threads + job_concurrency + async_headroom`
 
 ## Heuristics
 
@@ -234,5 +205,6 @@ under load.
 - Every `has_many` or `belongs_to` touched in a view is a potential N+1
 - ActiveStorage counts as two associations: always `includes(x_attachment: :blob)`
 - `load_async` is free performance when two queries are independent — use it
-- Materialized views are a read/write tradeoff: only worth it when search is frequent and writes are tolerable to be slightly stale
+- Materialized views are a read/write tradeoff: only worth it when search is frequent and write latency is acceptable
 - Sequential scan is fine on tables under ~80KB — don't index everything
+- Timezone in the ETag is not optional when times render server-side
