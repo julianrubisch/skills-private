@@ -50,52 +50,7 @@ end
 **When to reach for DCI:** the same model needs different collaborators and
 behaviors in 2+ distinct use cases.
 
-## Routing
-
-Everything maps to CRUD. Nested resources for related actions:
-
-```ruby
-Rails.application.routes.draw do
-  resources :boards do
-    resources :cards do
-      resource :closure
-      resource :goldness
-      resource :not_now
-      resources :assignments
-      resources :comments
-    end
-  end
-end
-```
-
-**Verb-to-noun conversion:**
-| Action | Resource |
-|--------|----------|
-| close a card | `card.closure` |
-| watch a board | `board.watching` |
-| mark as golden | `card.goldness` |
-| archive a card | `card.archival` |
-
-**Shallow nesting** - avoid deep URLs:
-```ruby
-resources :boards do
-  resources :cards, shallow: true  # /boards/:id/cards, but /cards/:id
-end
-```
-
-**Singular resources** for one-per-parent:
-```ruby
-resource :closure   # not resources
-resource :goldness
-```
-
-**Resolve for URL generation:**
-```ruby
-# config/routes.rb
-resolve("Comment") { |comment| [comment.card, anchor: dom_id(comment)] }
-
-# Now url_for(@comment) works correctly
-```
+<!-- Add further preferred patterns here: form objects, query objects, value objects, etc. -->
 
 ## Anti-patterns
 

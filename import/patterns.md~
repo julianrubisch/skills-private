@@ -106,43 +106,10 @@ Add display logic to a model without polluting it. Keeps views and models clean.
 
 **When:** model methods start returning HTML, formatted strings, or view-specific logic.
 
-## Policy Objects (Pundit)
+## Policy Objects
 
-Authorization rules live in policy objects, separate from models and controllers.
-One policy per resource, named `<Model>Policy`.
+<!-- Add your preferred authorization approach: Pundit? Action Policy? -->
 
-```ruby
-# app/policies/card_policy.rb
-class CardPolicy < ApplicationPolicy
-  def update?
-    record.creator == user || user.admin?
-  end
+Encapsulate authorization rules separate from models and controllers.
 
-  def destroy?
-    update?
-  end
-
-  class Scope < ApplicationPolicy::Scope
-    def resolve
-      scope.where(account: user.account)
-    end
-  end
-end
-
-# Controller
-class CardsController < ApplicationController
-  def update
-    @card = Card.find(params[:id])
-    authorize @card
-
-    @card.update!(card_params)
-  end
-
-  def index
-    @cards = policy_scope(Card)
-  end
-end
-```
-
-**When:** authorization logic is conditional, role-based, or duplicated across controllers.
-**When not:** a simple `current_user.admin?` check in one place — inline is fine.
+**When:** authorization logic is conditional, role-based, or needs to be tested in isolation.
