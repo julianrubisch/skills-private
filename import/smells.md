@@ -90,13 +90,27 @@ end
 or `OtherModel.destroy_by(...)` on records outside their own association graph.
 
 ### Current in Models
-Accessing `Current.user`, `Current.account` etc. inside a model is a hidden
-dependency on the request context. Silent failures in jobs and background
+Accessing `Current.user`, `Current.account` etc. *inside a method body* is a
+hidden dependency on the request context. Silent failures in jobs and background
 threads where Current is not set.
 
-**Signal:** Any `Current.*` reference inside `app/models/`.
-**Exception:** `belongs_to :creator, default: -> { Current.user }` — acceptable
-as a convenience default, but the method should still accept an explicit argument.
+```ruby
+# Smell — buried, non-overridable dependency
+def process!
+  log_action(Current.user)   # caller can't inject a different user
+end
+
+# Fine — caller can always pass an explicit value
+def close(creator: Current.user)
+  create_closure!(creator:)
+end
+
+# Fine — belongs_to convenience default
+belongs_to :creator, class_name: "User", default: -> { Current.user }
+```
+
+**Signal:** `Current.*` used *inside* a method body with no way for the caller
+to override it. Default arguments and `belongs_to` defaults are acceptable.
 
 ### Feature Envy
 A method that's more interested in another object's data than its own.

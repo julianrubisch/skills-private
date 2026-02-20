@@ -4,7 +4,7 @@
 
 A performance review has four sections — work through them in order:
 
-1. **Frontend** — everything after HTML leaves the server (Lighthouse, images, lazy loading, preloading)
+1. **Frontend** — everything after HTML leaves the server (Core Web Vitals / PageSpeed, images, lazy loading, preloading) — defer to hwc-* skills for browser/JS specifics
 2. **Database** — I/O between app and DB (N+1, indexes, query count, eager loading)
 3. **Ruby/Memory** — timing and memory benchmarks of application code
 4. **Environment** — app server config, cache stores, load testing

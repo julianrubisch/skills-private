@@ -195,9 +195,9 @@ class Message < ApplicationRecord
   delegated_type :messageable, types: %w[Comment Reply Announcement]
 end
 
-# Store accessor for structured JSON
+# store_accessor for structured JSON/JSONB — prefer over store()
 class User < ApplicationRecord
-  store :settings, accessors: [:theme, :notifications_enabled], coder: JSON
+  store_accessor :settings, :theme, :notifications_enabled
 end
 ```
 
@@ -373,7 +373,7 @@ end
 
 ## Testing
 
-Preferences only — full testing guide in `review-testing.md`.
+Preferences only — full testing guide in `shared/testing.md`.
 
 - **Minitest**, not RSpec
 - **Fixtures**, not factory_bot

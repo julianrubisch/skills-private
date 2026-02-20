@@ -211,7 +211,7 @@ orchestration (mailers, jobs, external calls) out of models entirely.
 - Prefer named domain objects (nouns) over procedural service objects (verb + "Service")
 - A model reaching out to create/destroy records in unrelated models is a SRP violation
 - All authorization scoping belongs in a Pundit policy scope, not in controller actions
-- `Current.*` in a model is a hidden request-context dependency — flag it
+- `Current.*` *inside* a model method body is a hidden dependency — flag it. Default arguments and `belongs_to` defaults are fine.
 - Collection renders with `cached: true` cost almost nothing and compound fast
 
 <!-- Add your own architectural rules below -->

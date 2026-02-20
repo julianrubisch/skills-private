@@ -62,11 +62,3 @@ end
 ResourceRegistry.fetch(file_path) { File.read(file_path) }
 ```
 
-## Patterns
-<!-- What good Rails infrastructure/devops looks like -->
-
-## Anti-patterns
-<!-- What to flag, and why -->
-
-## Heuristics
-<!-- Rules of thumb, judgment calls -->
