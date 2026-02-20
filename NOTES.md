@@ -73,6 +73,21 @@ target files listed. Ordered by recency — more recent = higher trust for curre
 
 ### → review-performance.md
 
+- **Missing PostgreSQL indexes** (railsreviews.com)
+  https://www.railsreviews.com/articles/missing-postgres-indexes
+  _Two diagnostic SQL queries worth embedding directly in the agent as runnable tools:_
+  _1. `pg_stat_all_tables`: seq_scan vs idx_scan delta, 80KB threshold to skip small tables_
+  _2. `pg_statio_user_tables`: index efficiency as cache hit ratio, sort ASC to find worst offenders_
+  _Key heuristic: only flag tables > 80,000 bytes — sequential scans beat indexes on small tables_
+
+- **Avo performance audit** (railsreviews.com) ⚠️ more source files coming from user
+  https://www.railsreviews.com/case-studies/avo
+  _Real-world audit — extract into review-performance.md AND review-quality.md:_
+  _Performance: N+1 on index/show routes, ActiveStorage attachments missing eager loading_
+  _Quality: unmemoized metaprogramming vars (class_name etc.), file I/O in hot paths without caching_
+  _Results are concrete benchmarks — useful as "what fixing this looks like" examples_
+  _Frontend findings (lazy loading, hero preload, Lighthouse 81→98) → defer to hwc skills_
+
 - **HTTP caching in Rails** (Aug 14, 2024)
   https://blog.appsignal.com/2024/08/14/an-introduction-to-http-caching-in-ruby-on-rails.html
   _Cache-Control, ETags, fresh_when, expires_in, cache leak prevention via etag { current_user&.id }_
