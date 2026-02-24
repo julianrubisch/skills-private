@@ -296,6 +296,43 @@ on a small pool, this causes `ConnectionTimeoutError` under load.
 **Fix:** Size the pool to account for async usage:
 `pool = puma_threads + job_concurrency + async_headroom`
 
+
+
+### Doing in Ruby what should be done in SQL
+
+**Detection**:
+- `Model.all.select`, `all.map`, `all.reject` (loading entire tables)
+- Ruby sorting/filtering after loading records
+- `association.length` instead of `association.count`
+- Ruby `inject`/`reduce` for sums that could be SQL aggregations
+
+**Severity**: High
+
+**Solutions**:
+```ruby
+# Bad: Loads ALL orders into Ruby memory
+Order.all.select { |o| o.total > 100 }
+
+# Good: Database does the work
+Order.where("total > ?", 100)
+
+# Bad: Loads all records to count
+user.posts.length
+
+# Good: SQL count
+user.posts.count
+# Or: user.posts.size (uses counter cache if available)
+
+# Bad: Ruby sum
+Order.all.map(&:total).sum
+
+# Good: SQL sum
+Order.sum(:total)
+```
+
+**Audit Check**: Search for `.all.select`, `.all.map`, `.all.reject`, `.all.each` in models/controllers. Flag `.length` on associations.
+
+
 ## Heuristics
 
 - Run the two index diagnostic queries on any app before claiming it's "fast"
@@ -305,3 +342,46 @@ on a small pool, this causes `ConnectionTimeoutError` under load.
 - Materialized views are a read/write tradeoff: only worth it when search is frequent and write latency is acceptable
 - Sequential scan is fine on tables under ~80KB — don't index everything
 - Timezone in the ETag is not optional when times render server-side
+
+
+### Additional Heuristic to find missing indexes
+
+Missing Database Indexes
+
+**Pattern**: Tables missing indexes on commonly queried columns.
+
+**Detection**:
+- Foreign key columns (`*_id`) without indexes
+- Polymorphic type/id pairs without composite indexes
+- Columns used in `validates :uniqueness` without unique indexes
+- STI `type` columns without indexes
+- Columns used in `to_param` (slugs) without indexes
+- State/status columns used in `where` without indexes
+
+**Severity**: High (performance)
+
+**Solutions**:
+```ruby
+# Foreign keys need indexes
+add_index :posts, :user_id
+
+# Polymorphic associations need composite indexes
+add_index :comments, [:commentable_type, :commentable_id]
+
+# Uniqueness validations need unique indexes
+add_index :users, :email, unique: true
+
+# STI needs type index
+add_index :vehicles, :type
+
+# Slugs need indexes
+add_index :posts, :slug, unique: true
+```
+
+**Audit Check**:
+```bash
+# Find foreign key columns without indexes
+# Compare *_id columns in schema.rb against add_index statements
+```
+
+Flag: Any `*_id` column without index. Any `validates :uniqueness` without database-level unique index.

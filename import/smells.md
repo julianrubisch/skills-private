@@ -33,6 +33,22 @@ send_notification(user, immediately: true)
 
 ## Class-level Smells
 
+### God Class
+**Pattern**: Class that knows too much about the system.
+
+**Detection**:
+- References to most other models
+- Difficult to answer questions without this class
+- Very high number of methods and lines
+- Common in `User` model or central domain object
+
+**Severity**: Critical
+
+**Solutions**:
+- Extract Class aggressively
+- Use composition
+- Introduce domain-specific objects
+
 ### Large Class
 Class with too many responsibilities. Hard to name without "and" or "manager".
 
@@ -138,6 +154,9 @@ end
 ```
 
 **Fix:** Move the method to the object it envies, or [Extract Validator](refactorings/007-extract-validator.md) / [Introduce Form Object](refactorings/004-introduce-form-object.md) if it belongs in a dedicated object.
+
+See also: `anti-patterns.md § Voyeuristic Models` for Law of Demeter violations
+(3+ level association chains in views/controllers).
 
 _[Ruby Science →](https://thoughtbot.com/ruby-science/feature-envy.html)_
 

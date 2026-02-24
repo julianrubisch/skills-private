@@ -253,9 +253,10 @@ priority order** when multiple apply.
 | 6 | Extract Validator | https://thoughtbot.com/ruby-science/extract-validator.html | ✅ done — `007-*.md`, notes Rule Objects overlap |
 | 7 | Introduce Parameter Object | https://thoughtbot.com/ruby-science/introduce-parameter-object.html | ✅ done — `008-*.md`, notes Value Objects overlap + `composed_of` |
 | 8 | Replace Callback with Method | https://thoughtbot.com/ruby-science/replace-callback-with-method.html | ✅ done — `009-*.md`, cross-refs coding-classic.md |
+| 9 | Rename Service Object to Domain Model | — (original) | ✅ done — `010-*.md`, cross-refs patterns.md + review-architecture.md |
 
 **Build instructions:**
-- ~~Fetch each URL and create…~~ All 8 refactoring files (002–009) now exist with RS links.
+- ~~Fetch each URL and create…~~ All 9 refactoring files (002–010) now exist.
 - When the review agent proposes a fix, prefer refactorings higher in this list
   when more than one applies to a given smell.
 
@@ -267,6 +268,7 @@ priority order** when multiple apply.
 - Long Parameter List → Introduce Parameter Object
 - Large Class → Introduce Form Object, Replace Mixin with Composition
 - Callback → Replace Callback with Method
+- God Class → Introduce Form Object, Replace Mixin with Composition, Replace Subclasses with Strategies, Replace Conditional with Polymorphism, Rename Service Object to Domain Model
 
 ---
 

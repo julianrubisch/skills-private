@@ -129,7 +129,7 @@ end
 
 ### POROs Namespaced Under Models
 
-Business logic that doesn't fit a concern goes in a PORO under the model namespace.
+Business logic that doesn't fit a concern goes in a PORO under the model namespace. Prefer `app/models/` with namespaces over `app/services/`.
 Not service objects — domain objects with clear responsibility.
 
 ```ruby

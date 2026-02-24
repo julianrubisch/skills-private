@@ -7,7 +7,11 @@ anti-patterns and smells point here for solutions.
 ## Query Objects
 
 Encapsulate complex or reusable AR queries. Reach for this when a scope isn't enough
-— multiple conditions, joins, subqueries, or shared across contexts.
+— multiple conditions, joins, subqueries, or shared across contexts. Two shapes:
+
+### Relation-Wrapping Query
+
+Wraps an AR relation. Composable — accepts a base scope, returns a scope.
 
 ```ruby
 # app/queries/overdue_invoices_query.rb
@@ -28,6 +32,44 @@ end
 OverdueInvoicesQuery.new.call
 OverdueInvoicesQuery.new(current_user.invoices).call
 ```
+
+### Search / Filter Form
+
+**Preferred** when query parameters come from user input. Uses `ActiveModel::Model`
+\+ `ActiveModel::Attributes` for type coercion, defaults, and `form_with` integration.
+Lives in `app/models/`.
+
+```ruby
+# app/models/post_search.rb
+class PostSearch
+  include ActiveModel::Model
+  include ActiveModel::Attributes
+  
+  attribute :query, :string
+  attribute :author_id, :integer
+  attribute :status, :string
+  attribute :sort_column, :string, default: "created_at"
+  attribute :sort_direction, :string, default: "desc"
+  
+  def results
+    scope = Post.all
+    scope = scope.where("title ILIKE ?", "%#{query}%") if query.present?
+    scope = scope.where(author_id: author_id) if author_id.present?
+    scope = scope.where(status: status) if status.present?
+    scope.order(sort_column => sort_direction)
+  end
+  
+  def sort_options
+    [
+      ["Newest First", "created_at-desc"],
+      ["Oldest First", "created_at-asc"],
+      ["Title A-Z", "title-asc"],
+      ["Title Z-A", "title-desc"]
+    ]
+  end
+end
+```
+
 
 **When:** inline `.where` chains repeated in 2+ places, or query has 3+ conditions.
 **When not:** a simple named scope covers it.
@@ -381,10 +423,128 @@ end
 ## Presenters / Decorators
 
 Add display logic to a model without polluting it. Keeps views and models clean.
+Uses `SimpleDelegator` — the presenter *is* the model (all methods delegate through)
+but layers on view-specific formatting. The `h` accessor gives access to view helpers
+(routes, `link_to`, `number_to_currency`, etc.) when needed.
 
-<!-- Add your preferred approach here: Draper? Plain Ruby decorator? ViewComponent? -->
+### Base Class
+
+```ruby
+# app/presenters/base_presenter.rb
+class BasePresenter < SimpleDelegator
+  def initialize(model, view = nil)
+    @view = view
+    super(model)
+  end
+
+  def h
+    @view
+  end
+end
+```
+
+### Helper
+
+Available in both controllers and views via a concern:
+
+```ruby
+# app/controllers/concerns/presentable.rb
+module Presentable
+  extend ActiveSupport::Concern
+
+  included do
+    helper_method :present
+  end
+
+  def present(model)
+    klass = "#{model.class}Presenter".constantize
+    presenter = klass.new(model, view_context)
+    block_given? ? yield(presenter) : presenter
+  end
+end
+
+# app/controllers/application_controller.rb
+class ApplicationController < ActionController::Base
+  include Presentable
+end
+```
+
+### Concrete Presenters
+
+```ruby
+# app/presenters/contact_presenter.rb
+class ContactPresenter < BasePresenter
+  def recipient
+    recipient = "z.Hd. #{title.title} #{titleinfo} #{firstname} #{lastname}"
+    recipient << ", #{postnomen}" if postnomen.present?
+    recipient
+  end
+
+  def recipient_salutation
+    salutation = "Sehr geehrte#{"r" if title.title == "Herr"}"
+
+    "#{salutation} #{title.title} #{titleinfo} #{firstname} #{lastname}"
+  end
+end
+```
+
+```ruby
+# app/presenters/searchprofile_presenter.rb
+class SearchprofilePresenter < BasePresenter
+  include ContactsHelper
+
+  def delivery_string
+    case fk_delivery
+    when 1
+      "Fax: #{recipient&.faxnumber&.present? ? format_tel_number(recipient, 'fax') : ''}"
+    when 2
+      "Per Post"
+    when 3
+      recipient.email.present? ? recipient.email : "E-Mail"
+    end
+  end
+
+  def area_description
+    %i[officearea parcelarea parkspace storagearea totalarea warehausearea].map do |area_type|
+      next unless present_area_types.keys.any? { |key| key.match? /#{area_type}/ }
+
+      from = send("#{area_type}from")
+      to = send("#{area_type}to")
+      from_string = " von #{from} qm" if from.present?
+      to_string = " bis #{to} qm" if to.present?
+
+      "#{Searchprofile.human_attribute_name(area_type)}:#{from_string}#{to_string}"
+    end.compact.join(", ")
+  end
+end
+```
+
+### Usage in Controller and View
+
+```ruby
+# Controller — wrap early, pass presenter as the ivar
+class ContactsController < ApplicationController
+  def show
+    @contact = present(Contact.find(params[:id]))
+  end
+end
+```
+
+```erb
+<%# View — presenter methods alongside regular model attributes %>
+<h1><%= @contact.recipient %></h1>
+<p><%= @contact.recipient_salutation %></p>
+<p><%= @contact.email %></p>  <%# delegates to Contact#email %>
+
+<%# Or use the block form inline via helper_method %>
+<% present(@searchprofile) do |sp| %>
+  <p><%= sp.delivery_string %></p>
+  <p><%= sp.area_description %></p>
+<% end %>
+```
 
 **When:** model methods start returning HTML, formatted strings, or view-specific logic.
+**When not:** the formatting is a one-liner used in a single view — inline is fine.
 
 ## Policy Objects (Pundit)
 
@@ -426,3 +586,137 @@ end
 
 **When:** authorization logic is conditional, role-based, or duplicated across controllers.
 **When not:** a simple `current_user.admin?` check in one place — inline is fine.
+
+
+## Calculator Objects
+
+Extract complex calculations into a PORO namespaced under the model it serves.
+Follows the `app/models/<model>/<concept>.rb` convention
+(see `coding-classic.md § POROs Namespaced Under Models`).
+
+```ruby
+# app/models/line_item.rb
+class LineItem < ApplicationRecord
+  def price
+    LineItems::Price.new(self).calculate
+  end
+end
+
+# app/models/line_items/price.rb
+module LineItems
+  class Price
+    def initialize(line_item)
+      @line_item = line_item
+      @product = line_item.product
+    end
+
+    def calculate
+      base_price + options_price - discount
+    end
+
+    private
+
+    def base_price
+      @product.base_price
+    end
+
+    def options_price
+      @line_item.options.sum(&:price)
+    end
+
+    def discount
+      @line_item.coupon&.discount_amount || 0
+    end
+  end
+end
+```
+
+**When:** a model method contains 3+ private helpers all dedicated to one calculation.
+**When not:** the calculation is a simple one-liner — leave it on the model.
+
+## Domain Models over Service Objects
+
+**Key principle:** a representation of a business domain concept is called a **model**.
+Instead of `*Service`, `*Manager`, `*Handler` — name the domain concept as a noun.
+
+```ruby
+# Bad — procedural, no domain identity
+# app/services/notification_service.rb
+class NotificationService
+  def self.call(user, message)
+    # sends notification
+  end
+end
+
+# Good — domain model, lives in app/models/
+# app/models/notification.rb
+class Notification
+  include ActiveModel::Model
+
+  attr_accessor :user, :message
+
+  def deliver
+    # sends notification
+  end
+end
+```
+
+### Naming Guidelines
+
+| Instead of | Use |
+|------------|-----|
+| `UserSignupService` | `Registration` or `UserSignup` |
+| `PaymentProcessor` | `Payment` |
+| `NotificationService` | `Notification` or `NotificationDelivery` |
+| `EmailSender` | `Email` or `EmailMessage` |
+| `OrderCreator` | `Order` or `OrderPlacement` |
+| `InvitationManager` | `Invitation` |
+
+**Rule**: think of the **noun** that describes what this thing *is*, not what it *does*.
+
+These domain models use `ActiveModel::Model` for validation, form integration, and
+mass assignment from params — the same foundation as Form Objects. For simple
+multi-model orchestration that doesn't need the full `ApplicationForm` base class,
+a plain `ActiveModel::Model` class with a `save` method is enough:
+
+```ruby
+# app/models/registration.rb — lightweight domain model
+class Registration
+  include ActiveModel::Model
+
+  attr_accessor :email, :password, :company_name
+
+  validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :password, presence: true, length: { minimum: 8 }
+  validates :company_name, presence: true
+
+  def save
+    return false unless valid?
+
+    create_user
+    create_company
+    send_welcome_email
+    true
+  end
+
+  private
+
+  def create_user
+    @user = User.create!(email: email, password: password)
+  end
+
+  def create_company
+    @company = Company.create!(name: company_name, owner: @user)
+  end
+
+  def send_welcome_email
+    RegistrationMailer.welcome(@user).deliver_later
+  end
+end
+```
+
+**When to reach for `ApplicationForm` instead:** when you need `after_save` callbacks,
+`model_name` quacking for route helpers, or `submit!` / `with_transaction` plumbing.
+
+See also: `refactorings/010-refactor-service-object-into-poro.md`,
+`review-architecture.md § Anti-patterns > Service Objects`

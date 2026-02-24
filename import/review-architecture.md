@@ -151,7 +151,20 @@ end
 fat models did, with no design pressure on what belongs inside. The name
 tells you *what happens*, not *what domain concept this represents*.
 
-<!-- Add more detail here on what to use instead — DCI, rich models, named domain objects -->
+**Fix:** Rename to the domain noun and place in `app/models/`.
+
+| Instead of | Use |
+|------------|-----|
+| `UserSignupService` | `Registration` |
+| `PaymentProcessor` | `Payment` |
+| `NotificationService` | `Notification` |
+| `OrderCreator` | `OrderPlacement` |
+
+Use `ActiveModel::Model` for validation and form integration. For multi-model
+orchestration, use a Form Object (`ApplicationForm`) or DCI context.
+
+See: `patterns.md § Domain Models over Service Objects`,
+`refactorings/010-refactor-service-object-into-poro.md`
 
 ### Business Logic in Jobs
 
@@ -217,4 +230,8 @@ orchestration (mailers, jobs, external calls) out of models entirely.
 - Inherit for "is-a", mixin for "acts-as", compose for "uses-a" — if you inherit just to reuse code, compose instead
 - Form objects model user interaction, not domain entities — if a model carries transient attributes or side-effect callbacks for a UI flow, extract a form object
 
-<!-- Add your own architectural rules below -->
+- Controllers with > 7 public actions are a REST violation — extract sub-resources (see `coding-classic.md § REST Mapping`)
+- Flag `.where`/`.order`/`.joins` chains in controllers — extract to named scopes or query objects
+
+See also: `anti-patterns.md` for external service handling (bare rescue, missing
+timeouts), migration hygiene, session management, and view logic anti-patterns.
