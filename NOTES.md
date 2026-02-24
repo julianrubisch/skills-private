@@ -95,7 +95,7 @@ target files listed. Ordered by recency — more recent = higher trust for curre
   _2. `pg_statio_user_tables`: index efficiency as cache hit ratio, sort ASC to find worst offenders_
   _Key heuristic: only flag tables > 80,000 bytes — sequential scans beat indexes on small tables_
 
-- **Avo performance audit** (railsreviews.com) ⚠️ more source files coming from user
+- **Avo performance audit** (railsreviews.com)
   https://www.railsreviews.com/case-studies/avo
   _Real-world audit — extract into review-performance.md AND review-quality.md:_
   _Performance: N+1 on index/show routes, ActiveStorage attachments missing eager loading_
