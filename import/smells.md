@@ -53,6 +53,10 @@ def validate_address(street, city, zip, country)
 # Signal: extract Address value object
 ```
 
+**Fix:** Extract a Value Object (see `patterns.md § Value Objects`). For
+denormalized columns on a single table, use `composed_of` to map columns
+to the value object without a migration.
+
 ## Interaction Smells
 
 ### Command/Query Separation Violation

@@ -62,6 +62,21 @@ as part of a full testing review pass.
 Fetch these URLs during skill construction and extract relevant content into the
 target files listed. Ordered by recency — more recent = higher trust for current Rails versions.
 
+### → patterns.md (already distilled)
+
+- **Advanced Domain Modeling Part 1: Value Objects with `composed_of`** (unpublished)
+  _Color value object, `composed_of` macro, converter/mapping/allow_nil, Comparable, hash-based equality_
+  **Status: distilled** into patterns.md § Value Objects
+
+- **Advanced Domain Modeling Part 2: Polymorphism with Strategies** (unpublished)
+  _Strategy pattern vs inheritance vs mixins, Sandi Metz rule of thumb, runtime behavior swapping, client-side strategies (Turbo prefetch — defer to hwc-*)_
+  **Status: distilled** into patterns.md § Strategy Objects and review-architecture.md heuristics
+
+- **Advanced Domain Modeling Part 3: Form Builders and Form Objects** (unpublished)
+  _ApplicationForm base class, model_name quacking, error bubbling, submit! template method, custom FormBuilder subclass, styled_form_with helper_
+  **Status: distilled** into patterns.md § Form Objects
+  **Pending:** Form builder content (StyledFormBuilder, custom form inputs, validate_availability_field) → coding-classic.md § Frontend when that section is filled
+
 ### → patterns.md
 
 - **Kredis UI state container** (Mar 15, 2023)

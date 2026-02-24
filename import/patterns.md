@@ -34,68 +34,214 @@ OverdueInvoicesQuery.new(current_user.invoices).call
 
 ## Value Objects
 
-Represent a domain concept with no identity — equality is based on value, not id.
+Represent a domain concept with no identity — **fungible** objects whose equality
+is based entirely on their attributes, not an id. Two `Color.new(255, 0, 0)`
+instances are the same color. Small, immutable, and replaceable.
 Reach for this when you see data clumps or primitive obsession.
 
 ```ruby
-# app/value_objects/money.rb
-class Money
+# app/models/color.rb — value object with equality, conversions, comparability
+class Color
   include Comparable
+  include ActiveModel::Validations
 
-  attr_reader :amount, :currency
+  attr_reader :red, :green, :blue, :alpha
 
-  def initialize(amount, currency = "USD")
-    @amount = amount.to_d
-    @currency = currency
+  validates :red, :green, :blue, inclusion: { in: 0..255 }
+  validates :alpha, inclusion: { in: 0.0..1.0 }
+
+  def initialize(red_or_hex, green = nil, blue = nil, alpha = 1.0)
+    case [red_or_hex, green, blue]
+    in [/\A#?[0-9A-Fa-f]{6}\z/ => hex, nil, nil]
+      @red, @green, @blue = [hex.delete("#")].pack("H*").unpack("C*")
+    else
+      @red, @green, @blue = red_or_hex.to_i, green.to_i, blue.to_i
+    end
+    @alpha = alpha.to_f
   end
 
-  def +(other)
-    raise ArgumentError, "Currency mismatch" unless currency == other.currency
-    Money.new(amount + other.amount, currency)
+  def ==(other)
+    other.is_a?(Color) && hash == other.hash
+  end
+
+  def hash
+    [red, green, blue, alpha].hash
   end
 
   def <=>(other)
-    amount <=> other.amount
+    lightness <=> other.lightness
   end
+
+  def to_hex = format("%02X%02X%02X", red, green, blue)
+  def to_rgb_s = "rgb(#{red} #{green} #{blue})"
 end
 ```
 
+### Integrating with ActiveRecord via `composed_of`
+
+`composed_of` is a built-in Rails macro that maps denormalized columns to a
+value object — think of it as an inline `has_one` without a separate table.
+
+```ruby
+class Theme < ApplicationRecord
+  composed_of :primary_color,
+              class_name: "Color",
+              mapping: {
+                primary_color_red: :red,
+                primary_color_green: :green,
+                primary_color_blue: :blue,
+                primary_color_alpha: :alpha
+              },
+              converter: ->(value) { Color.new(value) }
+
+  validates_associated :primary_color
+end
+
+# Now you get clean assignment, querying, and form integration:
+theme = Theme.create!(name: "Dark", primary_color: "#FF0000")
+theme.primary_color.to_hex          # => "FF0000"
+theme.update!(primary_color: "#00FF00")
+Theme.where(primary_color: Color.new("#0000FF"))
+```
+
+**Key options:**
+- `mapping:` — column-to-attribute hash. **Order matters** — it determines
+  constructor argument order.
+- `converter:` — proc called on assignment so you can write `= "#FF0000"`
+  instead of `= Color.new("#FF0000")`.
+- `allow_nil:` — permits setting the value object to nil (all columns → NULL).
+
 **When:** same 2-3 primitive values always travel together, or you find yourself
-duplicating formatting/comparison logic for raw primitives.
+duplicating formatting/comparison logic for raw primitives. Especially when the
+values are denormalized columns on a single table.
+**When not:** the concept has its own identity (needs its own table → use a model).
 
 ## Form Objects
 
 Handle multi-model forms, virtual attributes, or complex input validation outside
-the model. Keeps models clean of presentation-driven concerns.
+the model. Keeps models clean of presentation-driven concerns. A form object
+models user interaction, not domain entities — it's an application-layer boundary.
+
+Typical signals that a form object is needed:
+- `before|after_create|update` hooks with side effects on the model
+- Conditional validation based on UI flow state
+- Transient attributes (`should_send_welcome_email`) without database backing
+- A model reaching out to mutate other models from within its own logic
+
+### ApplicationForm Base Class
+
+Extract common form plumbing into a base class:
 
 ```ruby
-# app/forms/registration_form.rb
-class RegistrationForm
+# app/forms/application_form.rb
+class ApplicationForm
   include ActiveModel::Model
   include ActiveModel::Attributes
+  extend ActiveModel::Callbacks
 
-  attribute :email, :string
-  attribute :password, :string
-  attribute :plan_id, :integer
+  define_model_callbacks :save, only: :after
 
-  validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
-  validates :password, length: { minimum: 12 }
-  validates :plan_id, presence: true
+  class << self
+    def after_save(...)
+      set_callback(:save, :after, ...)
+    end
 
+    # Quack like ActiveRecord for route helpers and form_with
+    def model_name
+      ActiveModel::Name.new(self, nil, name.sub(/Form$/, ""))
+    end
+  end
+
+  # Behaves like ActiveRecord: returns false on invalid, wraps in transaction
   def save
     return false unless valid?
-    # orchestrate multi-model creation
-    ActiveRecord::Base.transaction do
-      user = User.create!(email:, password:)
-      Subscription.create!(user:, plan_id:)
-    end
-    true
+
+    with_transaction { run_callbacks(:save) { submit! } }
+  end
+
+  private
+
+  def with_transaction(&)
+    ApplicationRecord.transaction(&)
+  end
+
+  # Subclasses must implement — the actual persistence logic
+  def submit!
+    raise NotImplementedError
   end
 end
 ```
 
-**When:** form spans multiple models, has virtual fields, or validation rules are
-specific to one UI flow rather than the domain model.
+### Concrete Form Object
+
+```ruby
+# app/forms/contact_form.rb
+class ContactForm < ApplicationForm
+  attribute :name, :string
+  attribute :email, :string
+  attribute :should_send_welcome_email, :boolean, default: false
+  attribute :follow_up, :boolean, default: false
+
+  validates :name, presence: true, if: :follow_up
+  validates :email, presence: true
+  validate :contact_is_valid
+
+  after_save :deliver_welcome_email!, if: :should_send_welcome_email
+
+  delegate :to_param, :id, to: :contact, allow_nil: true
+
+  def contact
+    @contact ||= Contact.new(name:, email:,
+      follow_up_started_at: (follow_up ? Time.current : nil))
+  end
+
+  private
+
+  def submit!
+    contact.save!
+  end
+
+  # Bubble model-level errors into the form
+  def contact_is_valid
+    return if contact.valid?
+    errors.merge!(contact.errors)
+  end
+
+  def deliver_welcome_email!
+    ContactMailer.welcome(name, email).deliver_later
+  end
+end
+```
+
+### Usage in Controller and View
+
+```ruby
+# Controller — same shape as a model-backed controller
+class ContactsController < ApplicationController
+  def new    = @contact_form = ContactForm.new
+  def create
+    @contact_form = ContactForm.new(contact_params)
+    if @contact_form.save
+      redirect_to @contact_form   # routes to /contacts/:id via model_name
+    else
+      render :new
+    end
+  end
+end
+```
+
+```erb
+<%# form_with routes to /contacts via model_name %>
+<%= form_with model: @contact_form do |f| %>
+  <%= f.text_field :name %>
+  <%= f.email_field :email %>
+  <%= f.check_box :should_send_welcome_email %>
+<% end %>
+```
+
+**When:** form spans multiple models, has virtual fields, validation rules are
+specific to one UI flow, or the model carries transient attributes / side-effect
+callbacks that belong to the interaction, not the domain.
 **When not:** single-model form with standard validations — just use the model.
 
 ## Rule Objects
@@ -140,6 +286,79 @@ end
 
 **When:** a single method has 4+ guard clauses, or the conditions need to be
 tested independently, or the same set of conditions appears in multiple places.
+
+## Strategy Objects
+
+Composition-based polymorphism. Instead of subclassing to vary behavior,
+inject collaborator objects that implement a common interface. The host object
+delegates to its strategy — behavior is pluggable at runtime.
+
+```ruby
+# Each strategy implements the same interface
+class Transport::Email
+  def deliver(campaign)
+    campaign.addressees.find_each do |addressee|
+      EmailService::Client.deliver(to: addressee, body: campaign.body)
+    end
+  end
+end
+
+class Transport::Sms
+  def deliver(campaign)
+    campaign.addressees.find_each do |addressee|
+      campaign.body.chars.each_slice(SMS_CHAR_LENGTH).map(&:join).each do |chunk|
+        SmsService::Client.deliver(to: addressee, body: chunk)
+      end
+    end
+  end
+end
+
+class Output::HTML
+  def format(content) = content.to_html
+end
+
+class Output::Plain
+  def format(content) = content.truncate(SMS_CHAR_LENGTH)
+end
+
+# Host composes strategies — no inheritance needed
+class Campaign
+  attr_accessor :transport, :output
+  attr_reader :body
+
+  def initialize(transport:, output:, body:)
+    @transport, @output, @body = transport, output, body
+  end
+
+  def process
+    @body = output.format(@body)
+    transport.deliver(self)
+  end
+end
+
+# Runtime flexibility — swap strategies freely
+campaign = Campaign.new(transport: Transport::Email.new, output: Output::HTML.new, body: content)
+campaign.process
+
+campaign.transport = Transport::Sms.new
+campaign.output    = Output::Plain.new
+campaign.process
+```
+
+**Rule of thumb** (Sandi Metz):
+- **Inherit** only for true "is-a" relationships with a stable type hierarchy.
+- **Mixin** for cross-cutting "acts-as" concerns (`Closeable`, `Watchable`).
+- **Compose** for flexible "uses-a" relationships — when you need runtime
+  swappability or the behaviors vary independently.
+
+If you're tempted to inherit just to reuse code, compose instead.
+
+**When:** family of interchangeable behaviors (transports, formatters, storage
+backends). The behaviors are independent and don't need deep access to the
+host's internal state.
+**When not:** simple `case` in a controller action that doesn't warrant the
+abstraction. If the strategy needs half the model's attributes, you're adding
+indirection for no gain (Feature Envy).
 
 ## `store_accessor` for JSON/JSONB Columns
 

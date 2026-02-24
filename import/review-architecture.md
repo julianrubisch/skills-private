@@ -214,4 +214,7 @@ orchestration (mailers, jobs, external calls) out of models entirely.
 - `Current.*` *inside* a model method body is a hidden dependency — flag it. Default arguments and `belongs_to` defaults are fine.
 - Collection renders with `cached: true` cost almost nothing and compound fast
 
+- Inherit for "is-a", mixin for "acts-as", compose for "uses-a" — if you inherit just to reuse code, compose instead
+- Form objects model user interaction, not domain entities — if a model carries transient attributes or side-effect callbacks for a UI flow, extract a form object
+
 <!-- Add your own architectural rules below -->
