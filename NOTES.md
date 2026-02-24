@@ -221,6 +221,7 @@ order** — highest priority first.
 
 | Priority | Smell | Ruby Science | Status in smells.md |
 |----------|-------|--------------|----------------------|
+| 0 | **God Class** | — | ✅ done — Critical severity, added by user |
 | 1 | Divergent Change | https://thoughtbot.com/ruby-science/divergent-change.html | ✅ done — link + Fix pointer added |
 | 2 | Shotgun Surgery | https://thoughtbot.com/ruby-science/shotgun-surgery.html | ✅ done — link + Fix pointer added |
 | 3 | Feature Envy | https://thoughtbot.com/ruby-science/feature-envy.html | ✅ done — link + Fix pointer added |
