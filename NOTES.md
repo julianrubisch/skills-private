@@ -30,6 +30,12 @@ The review skill should offer two invocation scopes:
 Both scopes use the same underlying agents and reference material — the
 difference is just which agents are dispatched and how findings are reported.
 
+**TODO (user):** Provide report templates for the following output formats:
+- App Audit — Targeted (single-dimension report)
+- App Audit — Full (all dimensions, grouped)
+- Pull Request review (inline comments + summary)
+- GitHub Issue (findings as actionable issue body)
+
 ---
 
 ## Testing Review Skill: System Test Conversion Workflow
