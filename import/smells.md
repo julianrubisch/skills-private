@@ -10,11 +10,15 @@ A method that does more than one thing. Hard to name precisely.
 
 **Signal:** More than ~10 lines, or you need "and" to describe what it does.
 
-### Too Many Parameters
+### Long Parameter List
 Method signature with 3+ positional arguments.
 
 **Signal:** `def create(user, plan, coupon, trial_days)` — callers must know argument order.
 Keyword arguments help but don't fix the underlying problem.
+
+**Fix:** [Introduce Parameter Object](refactorings/008-introduce-parameter-object.md)
+
+_[Ruby Science →](https://thoughtbot.com/ruby-science/long-parameter-list.html)_
 
 ### Flag Arguments
 Boolean passed to change method behavior — the method is doing two things.
@@ -33,6 +37,10 @@ send_notification(user, immediately: true)
 Class with too many responsibilities. Hard to name without "and" or "manager".
 
 **Signal:** 200+ lines, 10+ public methods, multiple unrelated instance variables.
+
+**Fix:** [Introduce Form Object](refactorings/004-introduce-form-object.md), [Replace Mixin with Composition](refactorings/006-replace-mixin-with-composition.md)
+
+_[Ruby Science →](https://thoughtbot.com/ruby-science/large-class.html)_
 
 ### Data Clumps
 Same group of data always appearing together — they probably want to be an object.
@@ -125,19 +133,27 @@ end
 # Signal: this logic might belong on Customer or Membership
 ```
 
+**Fix:** Move the method to the object it envies, or [Extract Validator](refactorings/007-extract-validator.md) / [Introduce Form Object](refactorings/004-introduce-form-object.md) if it belongs in a dedicated object.
+
+_[Ruby Science →](https://thoughtbot.com/ruby-science/feature-envy.html)_
+
 ### Inappropriate Intimacy
 Two classes know too much about each other's internals.
 
 **Signal:** Class A reaches into Class B's associations or private state directly.
 Often indicates a missing abstraction between them.
 
-### Long Case Statement
+### Case Statement
 A `case` with many `when` branches handling unrelated behavior. Attractive
 for assembling all conditions in one place, but becomes a maintenance burden.
 
 **Signal:** `case` with 5+ branches, or branches that call out to different
 objects/concerns. Often a candidate for pattern matching, a lookup table,
 or composition (e.g. strategies).
+
+**Fix:** [Replace Conditional with Polymorphism](refactorings/002-replace-conditional-with-polymorphism.md), [Replace Conditional with Null Object](refactorings/003-replace-conditional-with-null-object.md)
+
+_[Ruby Science →](https://thoughtbot.com/ruby-science/case-statement.html)_
 
 ## Change Smells
 
@@ -146,8 +162,44 @@ One logical change requires edits in many unrelated files.
 
 **Signal:** Adding a new payment provider touches 6 files. The concept isn't encapsulated.
 
+**Fix:** [Replace Conditional with Polymorphism](refactorings/002-replace-conditional-with-polymorphism.md), [Introduce Parameter Object](refactorings/008-introduce-parameter-object.md)
+
+_[Ruby Science →](https://thoughtbot.com/ruby-science/shotgun-surgery.html)_
+
 ### Divergent Change
 One class changes for many different reasons.
 
 **Signal:** "I edit this file whenever we change billing logic AND whenever we change
 notification logic." The class has multiple axes of change — split it.
+
+**Fix:** [Replace Conditional with Polymorphism](refactorings/002-replace-conditional-with-polymorphism.md), [Replace Subclasses with Strategies](refactorings/005-replace-subclasses-with-strategies.md)
+
+_[Ruby Science →](https://thoughtbot.com/ruby-science/divergent-change.html)_
+
+### Callback
+A Rails lifecycle callback (`after_create`, `after_save`, etc.) that performs
+work unrelated to the record's own persistence — sending email, creating records
+in other models, calling external services. The side effect is invisible at the
+call site and fires even when triggered by an unrelated save elsewhere.
+
+```ruby
+# Smell: delivery coupled to persistence
+class Invitation < ApplicationRecord
+  after_create :deliver   # fires on every create, even in tests/seeds
+
+  private
+  def deliver = InvitationMailer.invite(self).deliver_later
+end
+```
+
+**Signal:** Callbacks containing business logic (payments, notifications, cross-model
+creation). Methods like `save_without_sending_email` that exist to circumvent a callback.
+Conditionally-invoked callbacks that only apply in some contexts.
+
+**Fix:** [Replace Callback with Method](refactorings/009-replace-callback-with-method.md), [Introduce Form Object](refactorings/004-introduce-form-object.md)
+
+**Exception:** Own-state callbacks are fine — `before_save :normalize_email`,
+`before_save :update_search_index, if: :title_changed?`. Async job dispatch is
+also acceptable — `after_create_commit :notify_later`.
+
+_[Ruby Science →](https://thoughtbot.com/ruby-science/callback.html)_
