@@ -42,6 +42,10 @@ Eliminates the Case Statement smell and the Shotgun Surgery risk that follows it
 - You add **behaviors** frequently (not types): polymorphism makes adding new
   behaviors expensive because every subclass must implement them.
 - The variation is a one-off with no realistic growth path.
+- Variations span **independent axes** (e.g. transport × output format):
+  polymorphism creates a class-per-combination explosion. Use Strategy Objects
+  instead (see [005](005-replace-subclasses-with-strategies.md) and
+  `patterns.md § Strategy Objects`).
 - Consider [Replace Subclasses with Strategies](005-replace-subclasses-with-strategies.md)
   if the inheritance hierarchy is already causing STI pain.
 

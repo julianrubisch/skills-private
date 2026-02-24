@@ -49,4 +49,9 @@ through multiple layers.
 - Only one method uses the group — wait until a second call site appears before
   extracting.
 
+## AR integration
+When the parameter group corresponds to denormalized columns on a single table,
+use `composed_of` to map them to the value object without a migration — see
+`patterns.md § Value Objects`.
+
 _[Ruby Science →](https://thoughtbot.com/ruby-science/introduce-parameter-object.html)_
