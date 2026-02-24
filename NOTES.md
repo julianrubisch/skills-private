@@ -164,7 +164,7 @@ a smell — highest priority principle cited first when multiple apply.
 | Priority | Principle | Ruby Science | Coverage in import files |
 |----------|-----------|--------------|--------------------------|
 | 1 | Tell, Don't Ask | https://thoughtbot.com/ruby-science/tell-dont-ask.html | ⚠️ implicit in Feature Envy smell and CQS smell — not named explicitly |
-| 2 | Composition over Inheritance | https://thoughtbot.com/ruby-science/composition-over-inheritance.html | ⚠️ implicit in DCI + concerns patterns — not named explicitly |
+| 2 | Composition over Inheritance | https://thoughtbot.com/ruby-science/composition-over-inheritance.html | ⚠️ now named in patterns.md § Strategy Objects and review-architecture.md heuristics — needs shared/principles.md entry |
 | 3 | Single Responsibility Principle | https://thoughtbot.com/ruby-science/single-responsibility-principle.html | ⚠️ implicit throughout review-architecture.md (fat models, model SRP) — not named explicitly |
 | 4 | Dependency Inversion Principle | https://thoughtbot.com/ruby-science/dependency-inversion-principle.html | ❌ missing |
 | 5 | Open/Closed Principle | https://thoughtbot.com/ruby-science/openclosed-principle.html | ❌ missing |
@@ -199,21 +199,16 @@ order** — highest priority first.
 
 | Priority | Smell | Ruby Science | Status in smells.md |
 |----------|-------|--------------|----------------------|
-| 1 | Divergent Change | https://thoughtbot.com/ruby-science/divergent-change.html | ✅ exists — add link |
-| 2 | Shotgun Surgery | https://thoughtbot.com/ruby-science/shotgun-surgery.html | ✅ exists — add link |
-| 3 | Feature Envy | https://thoughtbot.com/ruby-science/feature-envy.html | ✅ exists — add link |
-| 4 | Case Statement | https://thoughtbot.com/ruby-science/case-statement.html | ✅ exists as "Long Case Statement" — align name, add link |
-| 5 | Long Parameter List | https://thoughtbot.com/ruby-science/long-parameter-list.html | ✅ exists as "Too Many Parameters" — align name, add link |
-| 6 | Large Class | https://thoughtbot.com/ruby-science/large-class.html | ✅ exists — add link |
-| 7 | Callback | https://thoughtbot.com/ruby-science/callback.html | ❌ missing — add entry |
+| 1 | Divergent Change | https://thoughtbot.com/ruby-science/divergent-change.html | ✅ done — link + Fix pointer added |
+| 2 | Shotgun Surgery | https://thoughtbot.com/ruby-science/shotgun-surgery.html | ✅ done — link + Fix pointer added |
+| 3 | Feature Envy | https://thoughtbot.com/ruby-science/feature-envy.html | ✅ done — link + Fix pointer added |
+| 4 | Case Statement | https://thoughtbot.com/ruby-science/case-statement.html | ✅ done — renamed from "Long Case Statement", link + Fix pointer added |
+| 5 | Long Parameter List | https://thoughtbot.com/ruby-science/long-parameter-list.html | ✅ done — renamed from "Too Many Parameters", link + Fix pointer added |
+| 6 | Large Class | https://thoughtbot.com/ruby-science/large-class.html | ✅ done — link + Fix pointer added |
+| 7 | Callback | https://thoughtbot.com/ruby-science/callback.html | ✅ done — full entry added with RS link |
 
 **Build instructions:**
-- Fetch each URL and merge any Ruby Science content that extends what's already
-  in smells.md. Don't replace existing entries — augment them.
-- Add `_[Ruby Science →](url)_` link at the end of each smell's description.
-- The Callback smell needs a full new entry. Ruby Science covers callbacks as a
-  smell when they increase complexity or introduce hidden side effects — fetch
-  the page and distill into smells.md.
+- ~~Fetch each URL and merge…~~ All smells now have RS links and Fix pointers.
 - When the review agent reports findings, order them by this priority table.
   If only one smell is present, still cite its priority level.
 
@@ -227,22 +222,17 @@ priority order** when multiple apply.
 
 | Priority | Refactoring | Ruby Science | Status |
 |----------|-------------|--------------|--------|
-| 1 | Replace Conditional with Polymorphism | https://thoughtbot.com/ruby-science/replace-conditional-with-polymorphism.html | ❌ missing |
-| 2 | Replace Conditional with Null Object | https://thoughtbot.com/ruby-science/replace-conditional-with-null-object.html | ❌ missing |
-| 3 | Introduce Form Object | https://thoughtbot.com/ruby-science/introduce-form-object.html | ⚠️ patterns.md has Form Objects — create refactoring file cross-referencing it |
-| 4 | Replace Subclasses with Strategies | https://thoughtbot.com/ruby-science/replace-subclasses-with-strategies.html | ❌ missing |
-| 5 | Replace Mixin with Composition | https://thoughtbot.com/ruby-science/replace-mixin-with-composition.html | ❌ missing |
-| 6 | Extract Validator | https://thoughtbot.com/ruby-science/extract-validator.html | ⚠️ patterns.md has Rule Objects (related but distinct) — create refactoring file, note the overlap |
-| 7 | Introduce Parameter Object | https://thoughtbot.com/ruby-science/introduce-parameter-object.html | ⚠️ patterns.md has Value Objects (related but distinct) — create refactoring file, clarify difference |
-| 8 | Replace Callback with Method | https://thoughtbot.com/ruby-science/replace-callback-with-method.html | ⚠️ coding-classic.md and review-architecture.md cover callbacks — create refactoring file cross-referencing both |
+| 1 | Replace Conditional with Polymorphism | https://thoughtbot.com/ruby-science/replace-conditional-with-polymorphism.html | ✅ done — `002-*.md` |
+| 2 | Replace Conditional with Null Object | https://thoughtbot.com/ruby-science/replace-conditional-with-null-object.html | ✅ done — `003-*.md` |
+| 3 | Introduce Form Object | https://thoughtbot.com/ruby-science/introduce-form-object.html | ✅ done — `004-*.md`, cross-refs patterns.md |
+| 4 | Replace Subclasses with Strategies | https://thoughtbot.com/ruby-science/replace-subclasses-with-strategies.html | ✅ done — `005-*.md` |
+| 5 | Replace Mixin with Composition | https://thoughtbot.com/ruby-science/replace-mixin-with-composition.html | ✅ done — `006-*.md` |
+| 6 | Extract Validator | https://thoughtbot.com/ruby-science/extract-validator.html | ✅ done — `007-*.md`, notes Rule Objects overlap |
+| 7 | Introduce Parameter Object | https://thoughtbot.com/ruby-science/introduce-parameter-object.html | ✅ done — `008-*.md`, notes Value Objects overlap + `composed_of` |
+| 8 | Replace Callback with Method | https://thoughtbot.com/ruby-science/replace-callback-with-method.html | ✅ done — `009-*.md`, cross-refs coding-classic.md |
 
 **Build instructions:**
-- Fetch each URL and create a numbered file in `import/refactorings/`
-  following the template in `000-template.md`.
-- For ⚠️ entries: link to the existing pattern/section rather than duplicating.
-  The refactoring file answers "how to get from bad to good"; patterns.md
-  answers "what good looks like."
-- Add `_[Ruby Science →](url)_` to each refactoring file.
+- ~~Fetch each URL and create…~~ All 8 refactoring files (002–009) now exist with RS links.
 - When the review agent proposes a fix, prefer refactorings higher in this list
   when more than one applies to a given smell.
 
