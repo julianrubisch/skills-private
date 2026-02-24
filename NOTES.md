@@ -16,6 +16,22 @@ Not content — instructions for the skill-building phase.
 - `phlex` style pairs with: same hwc skills + any Phlex-specific component patterns
   from the import file
 
+## Review Skill: Two Scopes
+
+The review skill should offer two invocation scopes:
+
+1. **Full app review** — runs all review dimensions (architecture, quality,
+   performance, testing, security) across the entire codebase. Produces a
+   comprehensive report grouped by dimension.
+2. **Targeted review** — runs a single dimension against the codebase, matching
+   the axes used on RailsReviews: architecture, code quality, performance,
+   testing, security. Invocable as e.g. `/jr-rails-review performance`.
+
+Both scopes use the same underlying agents and reference material — the
+difference is just which agents are dispatched and how findings are reported.
+
+---
+
 ## Testing Review Skill: System Test Conversion Workflow
 
 The `review-testing` agent should include a dedicated workflow for trimming excessive
