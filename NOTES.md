@@ -139,6 +139,43 @@ target files listed. Ordered by recency — more recent = higher trust for curre
   https://blog.cloud66.com/the-ultimate-guide-to-implementing-hotwired-and-turbo-in-a-rails-application
   _Turbo Drive/Frames/Streams, morphing, modal validation, caching — well covered by hwc skills already_
 
+## Ruby Science Principles — Priority Order
+
+Principles are the *why* behind smells and refactorings. At skill-build time,
+create `import/shared/principles.md` with each principle described concisely.
+Review agents load this file and **cite the violated principle** when flagging
+a smell — highest priority principle cited first when multiple apply.
+
+| Priority | Principle | Ruby Science | Coverage in import files |
+|----------|-----------|--------------|--------------------------|
+| 1 | Tell, Don't Ask | https://thoughtbot.com/ruby-science/tell-dont-ask.html | ⚠️ implicit in Feature Envy smell and CQS smell — not named explicitly |
+| 2 | Composition over Inheritance | https://thoughtbot.com/ruby-science/composition-over-inheritance.html | ⚠️ implicit in DCI + concerns patterns — not named explicitly |
+| 3 | Single Responsibility Principle | https://thoughtbot.com/ruby-science/single-responsibility-principle.html | ⚠️ implicit throughout review-architecture.md (fat models, model SRP) — not named explicitly |
+| 4 | Dependency Inversion Principle | https://thoughtbot.com/ruby-science/dependency-inversion-principle.html | ❌ missing |
+| 5 | Open/Closed Principle | https://thoughtbot.com/ruby-science/openclosed-principle.html | ❌ missing |
+| 6 | Law of Demeter | https://thoughtbot.com/ruby-science/law-of-demeter.html | ⚠️ smells.md has Inappropriate Intimacy (related) — not named explicitly |
+| 7 | DRY | https://thoughtbot.com/ruby-science/dry.html | ⚠️ implicit in Shotgun Surgery, Divergent Change, named scopes — not named explicitly |
+
+**Build instructions:**
+- Fetch each URL and distill into `import/shared/principles.md` — one section
+  per principle with a 2–3 sentence description and the Ruby Science link.
+- For ⚠️ entries: name the principle explicitly and link to the existing smell
+  or pattern that embodies it.
+- Wire each principle to the smells it governs (see mapping below) so the
+  review agent can say: "This violates SRP — see Large Class smell."
+- `shared/principles.md` is loaded by all review agents, not just one.
+
+**Principle → smell mapping** (for review agent wiring):
+- Tell, Don't Ask → Feature Envy, CQS Violation
+- Composition over Inheritance → Large Class, Callback, Long Case Statement
+- Single Responsibility Principle → Divergent Change, Large Class, Callback
+- Dependency Inversion Principle → Feature Envy, Inappropriate Intimacy
+- Open/Closed Principle → Case Statement, Long Case Statement
+- Law of Demeter → Inappropriate Intimacy, Feature Envy
+- DRY → Shotgun Surgery, Divergent Change
+
+---
+
 ## Ruby Science Smells — Priority Order
 
 At skill-build time, ensure every smell below exists in `smells.md` with a
