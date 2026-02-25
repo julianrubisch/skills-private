@@ -38,6 +38,25 @@ difference is just which agents are dispatched and how findings are reported.
 
 ---
 
+## Testing Review Skill: test-prof Integration
+
+The testing review agent should use [test-prof](https://test-prof.evilmartians.io/)
+to surface actionable profiling data. Key tools to invoke:
+
+- **TagProf** — tag-based profiling (group by `type:`, custom tags) to find
+  slow test categories
+- **EventProf** — event-based profiling (`factory.create`, `sql.active_record`,
+  `sidekiq.inline`) to find hidden costs
+- **StackProf integration** — flamegraph for individual slow tests
+- **FactoryProf** — factory cascade detection (factory creates triggering other
+  factory creates)
+- **RSpecDissect** — `before(:each)` / `let` profiling to find setup-heavy tests
+
+Wire as a sub-workflow: the agent runs test-prof first, then uses the output
+to prioritize which tests to flag or convert.
+
+---
+
 ## Testing Review Skill: System Test Conversion Workflow
 
 The `review-testing` agent should include a dedicated workflow for trimming excessive
