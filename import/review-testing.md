@@ -58,6 +58,95 @@ Only mock at system boundaries (external APIs, time).
 **Signal:** No integration test for authentication, authorization, or payment
 flows. Public methods on models with no corresponding test file.
 
+### Slow Tests
+
+**Signal:** Suite takes > 5 minutes; developers avoid running tests.
+
+**Common causes:** Too many system tests (see above), unnecessary database
+hits, factory cascades. Use test-prof (see NOTES.md) to diagnose.
+
+**Audit Check**: Flag if average test takes > 100ms.
+
+### Intermittent Failures
+
+**Signal:** Tests pass/fail randomly, "works on my machine."
+
+**Common causes:** Shared state between tests, time-dependent tests without
+`travel`/`travel_to`, order-dependent tests, race conditions in async code.
+
+**Audit Check**: Search for `sleep`, time manipulation without `travel_back`.
+
+### Brittle Tests
+
+**Signal:** Tests break when implementation changes but behavior didn't change.
+
+**Common causes:** Testing implementation not behavior, hardcoded CSS selectors,
+excessive mocking, stubs on the object under test itself.
+
+**Audit Check**: Flag tests with hardcoded CSS selectors, deep mock chains,
+or stubs on the object being tested (`object.stubs(:own_method)`).
+
+### Mystery Guest
+
+**Signal:** Test data defined elsewhere, hard to understand what the test depends on.
+
+Note: fixtures are intentionally the preferred approach despite this trade-off.
+Mitigate by naming fixtures descriptively and keeping fixture files small.
+The real anti-pattern is factory defaults that silently change test behavior.
+
+### False Positives
+
+**Signal:** Test passes but code is broken — not testing the right thing.
+
+**Audit Check**: Look for `assert_text ""` or overly broad `assert_selector`
+matchers that match anything.
+
+### Factory Misuse (when codebase uses factory_bot)
+
+Two related smells in factory-based codebases:
+
+- **Factories as fixtures**: Named factories for every scenario
+  (`create(:admin_user_with_premium_subscription)`) — traits proliferate,
+  test intent is buried in factory definitions.
+- **Bloated factories**: Factories create unnecessary associations and data
+  "just in case" — causes slow tests and cascading factory creation.
+
+**Audit Check**: Flag factories with > 5 attributes, unnecessary associations,
+or many trait combinations. Use `FactoryProf` (test-prof) to detect cascades.
+
+**Fix**: Migrate to fixtures. Failing that, keep factories minimal — only
+required attributes, no associations unless explicitly needed by the test.
+
+
+## Coverage Requirements by File Type
+
+| File Type | Min Coverage | Test Type |
+|-----------|--------------|-----------|
+| Model | 90% | Model test |
+| Controller | 80% | Integration test |
+| Service/PORO | 95% | Unit test |
+| Helper | 100% | Helper test |
+| Mailer | 100% | Mailer test |
+| Job | 90% | Job test |
+
+
+## Missing Test Detection
+
+For each Ruby file in `app/`:
+
+1. Check for corresponding test:
+   - `app/models/user.rb` → `test/models/user_test.rb`
+   - `app/controllers/users_controller.rb` → `test/controllers/users_controller_test.rb` or `test/integration/users_test.rb`
+
+2. Check public methods are tested:
+   - Extract public method names from source
+   - Search for those names in test file
+
+3. Report:
+   - Files without any tests → **High** severity
+   - Files with partial coverage → **Medium** severity
+
+
 ## Heuristics
 
 - If a test doesn't need a browser, it shouldn't be a system test

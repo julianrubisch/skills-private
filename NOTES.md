@@ -3,6 +3,62 @@
 Things to remember when distilling import material into actual skills.
 Not content — instructions for the skill-building phase.
 
+## General Development Workflow
+
+- Always prefer Rails generators (`rails g model`, `rails g controller`,
+  `rails g migration`, etc.) and rake tasks over writing boilerplate by hand.
+  Generators produce correct file structure, test stubs, and route entries in
+  one shot — minimizes token cost and reduces errors.
+- Prefer a **dev container** setup to isolate workloads. Every project should
+  ship `.devcontainer/` for reproducible environments. See `devops.md §
+  Development Environment` for the setup pattern.
+
+---
+
+## Bootstrap Skill (`/jr-rails-new`)
+
+A dedicated interactive skill for scaffolding new Rails applications. Interviews
+the user for preferences, then runs `rails new` with the right flags and
+performs post-scaffold configuration.
+
+### Interview Questions
+
+1. **App name** — free text
+2. **Database** — `postgresql` (default) / `mysql2` / `sqlite3`
+3. **Frontend bundling** — `importmap` (default) / `esbuild` / `vite_rails`
+4. **CSS** — `tailwind` / `sass` / `none`
+5. **View layer** — Classic ERB (default) / Phlex
+6. **Dev container** — yes (default) / no
+7. **Authentication** — `rails g authentication` (Rails 8+) / Devise / none
+8. **Testing** — Minitest (default, non-negotiable for jr-rails skills)
+9. **Authorization** — Pundit / none
+10. **Background jobs** — Solid Queue (default) / Sidekiq
+11. **Git worktree workflow** — yes / no (configures `.claude/` worktree helpers)
+
+### Post-scaffold Steps
+
+After `rails new`:
+
+1. If Phlex: add `phlex-rails` gem, generate `ApplicationLayout`, remove ERB layout
+2. If Pundit: `bundle add pundit && rails g pundit:install`
+3. If authentication: `rails g authentication` or add Devise + configure
+4. If dev container: verify `.devcontainer/` exists (Rails 7.2+ generates it)
+5. Add `CLAUDE.md` with project conventions pointing to jr-rails skills
+6. Add `.claude/settings.json` with worktree config if selected
+7. Run `bin/setup` to verify everything boots
+8. Initial commit
+
+### Build Notes
+
+- This is a **skill** (interactive), not an agent (read-heavy)
+- Should be invocable as `/jr-rails-new` from Claude Code
+- The interview uses `AskUserQuestion` for each decision point
+- Defaults should match our preferred stack: PostgreSQL, importmap, Tailwind,
+  ERB, devcontainer, Minitest, Solid Queue
+- After scaffolding, print a summary of what was configured
+
+---
+
 ## Frontend
 
 - Review agents should defer to `hwc-*` skills for Stimulus/Turbo mechanics —

@@ -6,7 +6,34 @@
 
 ## Development Environment
 
-<!-- Dev containers, reproducibility, team setup -->
+**Prefer dev containers** to isolate workloads and eliminate "works on my machine"
+problems. Every project should ship a `.devcontainer/` directory.
+
+### Setup
+
+Start with `rails new --devcontainer` (Rails 7.2+) to scaffold the boilerplate.
+Three files in `.devcontainer/`:
+
+- **`devcontainer.json`** — features (Ruby, Node, PG client), extensions,
+  env vars, `postCreateCommand` for `bin/setup`
+- **`compose.yaml`** — services (app, database, Selenium for system tests),
+  volume mounts, port mappings
+- **`Dockerfile`** — minimal, extends the official Rails base image
+
+### Key Patterns
+
+- Mount SSH keys as **read-only bind mounts** for seamless Git operations
+- `sleep infinity` in compose so containers stay up
+- Puma binds to `0.0.0.0` (not `127.0.0.1`) for port accessibility
+- Database as a separate compose service with persistent volumes
+
+### Execution
+
+- **VS Code / Cursor** — auto-detects `.devcontainer/`, offers to rebuild
+- **`devcontainer-cli`** — standalone CLI for headless / CI use
+- **GitHub Codespaces** — cloud-based, zero local setup
+
+Reference: https://www.rorvswild.com/blog/2025/dev-containers-rails
 
 ## Feature Flags
 

@@ -4,6 +4,16 @@ Prescriptive guide — how to write tests. Loaded by both coding skills and
 review agents. Review-specific concerns (what to flag, severity) live in
 review-testing.md.
 
+## Test Suite Quality Characteristics
+
+An effective test suite is:
+- **Fast**: Run frequently, quick feedback loop
+- **Complete**: All public code paths covered
+- **Reliable**: No false positives or intermittent failures
+- **Isolated**: Tests run independently, clean up after themselves
+- **Maintainable**: Easy to add new tests and modify existing ones
+- **Expressive**: Tests serve as documentation
+
 ## Stack
 
 - **Minitest** — ships with Rails, lower ceremony than RSpec
@@ -11,6 +21,11 @@ review-testing.md.
 - **VCR** — for external API interactions
 
 ## Test Types and When to Use Each
+
+Structure your test suite as a pyramid:
+- **Base**: Many fast unit/model tests
+- **Middle**: Some integration tests
+- **Top**: Few slow feature/system tests
 
 | Type | Use when |
 |------|----------|
@@ -81,6 +96,17 @@ class CardTest < ActiveSupport::TestCase
 end
 ```
 
+### Per-type guidance
+
+| Type | Focus on | Notes |
+|------|----------|-------|
+| Model | All public methods, edge cases | Every model should have a corresponding test file |
+| Controller / Integration | Auth checks, error paths, response formats | Prefer integration tests; use when auth or routing matters |
+| View | Conditional rendering, complex logic | Skip if using ViewComponent/Phlex — test those with their own primitives |
+| Helper | All public methods | — |
+| Mailer | Recipients, subject, body content | — |
+
+
 ## Integration Tests
 
 ```ruby
@@ -109,6 +135,17 @@ end
 
 ## System Tests (Use Sparingly)
 
+**Required Coverage**:
+- All critical user flows
+- Happy paths for main features
+- Key error handling paths
+
+**Audit Checks**:
+- [ ] Login/authentication flow tested
+- [ ] Main CRUD operations tested
+- [ ] Payment flows tested (if applicable)
+- [ ] Critical business workflows tested
+
 ```ruby
 class MessagesTest < ApplicationSystemTestCase
   test "drag and drop card to new column" do
@@ -123,6 +160,27 @@ end
 ```
 
 ## Principles
+
+### Four Phase Test Pattern
+
+Every test should follow:
+
+```ruby
+test "returns the user's full name" do
+  # Setup — use fixtures or build inline
+  user = users(:david)
+
+  # Exercise — execute the code being tested
+  result = user.full_name
+
+  # Verify — assert outcomes
+  assert_equal "David Heinemeier Hansson", result
+
+  # Teardown — handled by the framework (transactions)
+end
+```
+
+**Audit Check**: Tests should have clear separation between phases.
 
 ### Test Observable Behavior, Not Implementation
 
