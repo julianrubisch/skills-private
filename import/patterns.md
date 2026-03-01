@@ -162,7 +162,8 @@ values are denormalized columns on a single table.
 
 Handle multi-model forms, virtual attributes, or complex input validation outside
 the model. Keeps models clean of presentation-driven concerns. A form object
-models user interaction, not domain entities — it's an application-layer boundary.
+models user interaction, not domain entities — it straddles the presentation /
+application boundary (see `shared/architecture.md`).
 
 Typical signals that a form object is needed:
 - `before|after_create|update` hooks with side effects on the model

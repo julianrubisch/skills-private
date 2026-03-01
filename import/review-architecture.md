@@ -1,5 +1,8 @@
 # Architecture Review Reference
 
+For the layered architecture model (Presentation → Application → Domain →
+Infrastructure) and layer placement rules, see `shared/architecture.md`.
+
 ## Patterns
 
 ### Domain Logic in Models
