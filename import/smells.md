@@ -49,6 +49,9 @@ send_notification(user, immediately: true)
 - Use composition
 - Introduce domain-specific objects
 
+See `refactorings/extraction-signals.md § God Object Identification` for
+churn × complexity metrics and decomposition strategies.
+
 ### Large Class
 Class with too many responsibilities. Hard to name without "and" or "manager".
 
