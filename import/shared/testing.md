@@ -106,6 +106,28 @@ end
 | Helper | All public methods | — |
 | Mailer | Recipients, subject, body content | — |
 
+### Per-Layer Test Focus
+
+Use this as a layer-violation check: if a test verifies something outside
+its layer, that code should be extracted. See `shared/architecture.md §
+The Specification Test` for the full technique.
+
+**Controller / Integration tests SHOULD verify:**
+- HTTP status codes, redirects, response formats
+- Authentication and authorization
+- Parameter handling and strong params
+
+**Controller / Integration tests should NOT verify:**
+- Business rules, calculations, state transitions
+- External service behavior
+
+**Model tests SHOULD verify:**
+- Validations, business rules, calculations
+- State transitions, scopes, associations with logic
+
+**Model tests should NOT verify:**
+- HTTP concerns, notification delivery, external API calls
+
 
 ## Integration Tests
 

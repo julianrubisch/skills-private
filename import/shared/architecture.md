@@ -150,6 +150,87 @@ When designing or refactoring code:
 3. **Apply specification test** — do tests verify appropriate responsibilities?
 4. **Extract if needed** — move code to the correct layer
 
+## The Specification Test
+
+> If the specification of an object describes features beyond the primary
+> responsibility of its abstraction layer, those features should be extracted
+> into lower layers.
+
+Write test descriptions first (without implementation), then check whether
+each test verifies something within the object's layer. Mismatches reveal
+extraction candidates.
+
+### Example: Controller
+
+```ruby
+class GithubCallbacksControllerTest < ActionDispatch::IntegrationTest
+  test "rejects when signature is missing"   # ✓ Authentication — controller concern
+  test "rejects when signature is invalid"   # ✓ Authentication — controller concern
+  test "handles pull_request event"          # ✗ Business logic — extract to domain
+  test "handles issue event"                 # ✗ Business logic — extract to domain
+  test "handles missing user"                # ✗ Business logic — extract to domain
+end
+```
+
+After extraction — controller only tests HTTP concerns, domain model tests
+the event handling:
+
+```ruby
+# Controller — HTTP layer only
+class GithubCallbacksControllerTest < ActionDispatch::IntegrationTest
+  test "rejects when signature is missing"
+  test "rejects when signature is invalid"
+  test "processes valid webhook"
+end
+
+# Domain model — business logic
+class GithubEventTest < ActiveSupport::TestCase
+  test "handles pull_request event"
+  test "handles issue event"
+  test "handles missing user gracefully"
+end
+```
+
+### Example: Model
+
+```ruby
+class OrderTest < ActiveSupport::TestCase
+  test "validates minimum order total"       # ✓ Business rule — domain concern
+  test "calculates total with discounts"     # ✓ Domain calculation
+  test "sends confirmation email"            # ✗ Presentation — move to controller/form object
+  test "syncs to warehouse API"              # ✗ Infrastructure — extract to job
+end
+```
+
+### Applying the Test
+
+1. **List responsibilities** the code handles
+2. **Categorize by layer** using the table in § Layer Mapping
+3. **Extract** anything outside the object's primary layer
+
+| Responsibility | Layer | In a controller? |
+|----------------|-------|------------------|
+| Parse parameters | Presentation | ✓ |
+| Authenticate / authorize | Presentation / Application | ✓ |
+| Validate inventory, pricing, discounts | Domain | ✗ → model |
+| Create records | Domain | ✗ → model or form object |
+| Send email | Presentation | ✗ → controller after-action or form object callback |
+| Sync to external API | Infrastructure | ✗ → background job |
+| Return response | Presentation | ✓ |
+
+### Cost Benefit
+
+Moving logic to lower layers produces faster, simpler, more focused tests:
+
+| Test layer | Speed | Setup | Brittleness |
+|------------|-------|-------|-------------|
+| Model / unit | Fast | Low | Low |
+| Integration / controller | Medium | Medium | Medium |
+| System | Slow | High | High |
+
+See also: `shared/testing.md § Per-Layer Test Focus` for what each test
+type should and should not verify.
+
 ## Common Mistakes
 
 | Mistake | Problem | Solution | See also |
