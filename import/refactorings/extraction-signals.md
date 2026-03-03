@@ -77,21 +77,58 @@ end
 **Extraction options** (see `009-replace-callback-with-method.md`, `004-introduce-form-object.md`):
 1. Move to controller (simplest)
 2. Move to form object (when the callback is part of a user interaction flow)
-3. Use event-driven approach (when multiple subscribers need to react)
+3. Use an event-driven approach (when multiple subscribers need to react)
+
+### Event-driven extraction
+
+#### Rails 8.1+: `Rails.event` (ActiveSupport::EventReporter)
+
+Built-in structured event bus. **In-process only** — subscribers run in the
+same process, so side effects should dispatch to background jobs for anything
+heavy or external.
 
 ```ruby
-# GOOD - Event-driven
+# Model emits a structured event
 class User < ApplicationRecord
   after_commit on: :create do
-    UserCreatedEvent.publish(user: self)
+    Rails.event.notify("user.created", { id: id, email: email })
   end
 end
 
-# Subscribers handle side effects
-class WelcomeEmailSubscriber
-  def user_created(event)
-    UserMailer.welcome(event.user).deliver_later
+# Subscriber handles side effects — decoupled from the model
+class UserEventSubscriber
+  def emit(event)
+    case event[:name]
+    when "user.created"
+      UserMailer.welcome(event[:payload][:id]).deliver_later
+      CrmSyncJob.perform_later(event[:payload][:id])
+    end
   end
+end
+
+# config/initializers/event_subscribers.rb
+Rails.event.subscribe(UserEventSubscriber.new) { |e| e[:name].start_with?("user.") }
+```
+
+**Ops note:** `Rails.event` is in-process — no Redis or external backend
+required, but also no cross-process delivery. For distributed event handling,
+subscribers should enqueue jobs (Solid Queue / Sidekiq) that do the actual work.
+
+#### Rails ≤ 8.0: ActiveSupport::Notifications
+
+Same pattern using the older notifications API:
+
+```ruby
+class User < ApplicationRecord
+  after_commit on: :create do
+    ActiveSupport::Notifications.instrument("user.created", user: self)
+  end
+end
+
+# config/initializers/event_subscribers.rb
+ActiveSupport::Notifications.subscribe("user.created") do |event|
+  UserMailer.welcome(event.payload[:user]).deliver_later
+  CrmSyncJob.perform_later(event.payload[:user].id)
 end
 ```
 

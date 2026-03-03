@@ -222,7 +222,9 @@ end
 creation). Methods like `save_without_sending_email` that exist to circumvent a callback.
 Conditionally-invoked callbacks that only apply in some contexts.
 
-**Fix:** [Replace Callback with Method](refactorings/009-replace-callback-with-method.md), [Introduce Form Object](refactorings/004-introduce-form-object.md)
+**Fix:** [Replace Callback with Method](refactorings/009-replace-callback-with-method.md), [Introduce Form Object](refactorings/004-introduce-form-object.md).
+For multiple subscribers: event bus (`Rails.event` 8.1+ / `ActiveSupport::Notifications`).
+See `refactorings/extraction-signals.md § Event-driven extraction`.
 
 **Exception:** Own-state callbacks are fine — `before_save :normalize_email`,
 `before_save :update_search_index, if: :title_changed?`. Async job dispatch is

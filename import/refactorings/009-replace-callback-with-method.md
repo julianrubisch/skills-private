@@ -50,6 +50,26 @@ are sent for records that don't exist yet. The callback can't be accidentally
 triggered by an unrelated `save` elsewhere. Delivery is testable without
 persistence side effects.
 
+## Alternative: Event Bus
+
+When multiple subscribers need to react to the same lifecycle event, use
+the event bus instead of extracting individual methods:
+
+```ruby
+# Rails 8.1+ — Rails.event (in-process, no external backend)
+class Invitation < ApplicationRecord
+  after_commit on: :create do
+    Rails.event.notify("invitation.created", { id: id, survey_id: survey_id })
+  end
+end
+
+# Rails ≤ 8.0 — ActiveSupport::Notifications
+ActiveSupport::Notifications.instrument("invitation.created", invitation: self)
+```
+
+See `refactorings/extraction-signals.md § Event-driven extraction` for
+subscriber setup and ops notes.
+
 ## When NOT to apply
 - The callback updates derived state on the same record (`before_save :normalize_email`,
   `before_save :update_search_index, if: :title_changed?`) — own-state

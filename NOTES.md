@@ -351,3 +351,18 @@ priority order** when multiple apply.
 
 Skills are not yet symlinked into `~/.claude/skills/`. Do this after the first
 skill is built and functional, not before.
+
+---
+
+## Distribution
+
+Some skills will be released as free/open tools; others stay private. Don't
+settle on packaging or licensing yet — but keep this in mind when structuring
+the final skills:
+
+- Public skills should be self-contained (no references to private material)
+- Private skills can cross-reference other private material freely
+- Shared reference files (`shared/*.md`) may need to be split or duplicated
+  if some are public and some are private
+- Decide at build time which skills are public vs private, then verify no
+  private content leaks into public ones
