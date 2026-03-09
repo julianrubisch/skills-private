@@ -4,13 +4,13 @@ Personal Rails coding and review skills for Claude Code.
 
 ## Status
 
-Import phase complete. Reference library in `import/` is finished and ready
+Import phase complete. Reference library in `reference/` is finished and ready
 for skill building.
 
 ## Structure
 
 ```
-import/
+reference/
   coding-classic.md          # 37signals-style Rails coding guide
   coding-phlex.md            # Phlex component/view coding guide
   coding/
@@ -50,7 +50,7 @@ import/
 
 ## Workflow
 
-1. ~~Fill in the `import/` files~~ ✅ Done
+1. ~~Fill in the `reference/` files~~ ✅ Done
 2. Build skills from import material ← **next**
 3. Symlink skill directories into `~/.claude/skills/`
 

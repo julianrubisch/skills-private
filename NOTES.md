@@ -5,7 +5,7 @@ Not content — instructions for the skill-building phase.
 
 ## Import Status: ✅ COMPLETE
 
-All import material has been processed. The `import/` directory is the
+All import material has been processed. The `reference/` directory is the
 finished reference library. No further import processing needed.
 
 ### What was done
