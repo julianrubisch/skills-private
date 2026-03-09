@@ -51,8 +51,34 @@ reference/
 ## Workflow
 
 1. ~~Fill in the `reference/` files~~ ✅ Done
-2. Build skills from import material ← **next**
+2. Build skills from reference material ← **in progress**
 3. Symlink skill directories into `~/.claude/skills/`
+
+## Installation (Local)
+
+Each skill lives in `skills/<name>/` and contains a `Skill.md` plus a
+`reference` symlink pointing to `../../reference/`. To install a skill:
+
+```bash
+ln -s /path/to/jr-rails-skills/skills/jr-rails-classic ~/.claude/skills/jr-rails-classic
+```
+
+The `reference/` symlink resolves through the filesystem — Claude's Read
+tool follows symlinks transparently.
+
+## Publishing (Distribution)
+
+Skills reference shared files via a `reference/` symlink inside each skill
+directory. For distribution (zip, copy to another machine), resolve symlinks
+into real copies:
+
+```bash
+./scripts/publish.sh           # outputs to dist/
+./scripts/publish.sh /tmp/out  # custom output dir
+```
+
+This uses `cp -rL` to follow symlinks and produce self-contained skill
+directories that work without the repo.
 
 ## Conventions
 

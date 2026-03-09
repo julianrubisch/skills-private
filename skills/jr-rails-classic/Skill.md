@@ -252,26 +252,23 @@ Use `active_link_to` gem for navigation active states.
 
 ## Deep Reference Files
 
-Read these on demand when the task requires deeper guidance. Files are relative
-to this skill's repository root (`jr-rails-skills/reference/`):
+Read these on demand when the task requires deeper guidance:
 
-| Topic | File |
-|-------|------|
-| Design patterns (form objects, query objects, strategies, etc.) | `patterns.md` |
-| Anti-patterns and code smells | `anti-patterns.md`, `smells.md` |
-| Refactoring recipes | `refactorings/` (002–010) |
-| Testing guide | `shared/testing.md` |
-| Hotwire (Turbo + Stimulus) | `shared/hotwire.md` |
-| Background jobs + Continuations | `shared/jobs.md` |
-| State machines (AASM) | `shared/state_machines.md` |
-| Callbacks scoring + extraction | `shared/callbacks.md` |
-| Authorization (Pundit) | `shared/authorization.md` |
-| Notifications (Noticed) | `shared/notifications.md` |
-| Instrumentation / EventReporter | `shared/instrumentation.md` |
-| Components (Phlex) | `shared/components.md` |
-| Serializers (API JSON) | `shared/serializers.md` |
-| Architecture layers | `shared/architecture.md` |
-| Gem recommendations | `toolbelt.md` |
+- **Design patterns** (form objects, query objects, strategies, etc.): [reference/patterns.md](reference/patterns.md)
+- **Anti-patterns and code smells**: [reference/anti-patterns.md](reference/anti-patterns.md), [reference/smells.md](reference/smells.md)
+- **Refactoring recipes**: [reference/refactorings/](reference/refactorings/) (002–010)
+- **Testing guide**: [reference/shared/testing.md](reference/shared/testing.md)
+- **Hotwire** (Turbo + Stimulus): [reference/shared/hotwire.md](reference/shared/hotwire.md)
+- **Background jobs + Continuations**: [reference/shared/jobs.md](reference/shared/jobs.md)
+- **State machines** (AASM): [reference/shared/state_machines.md](reference/shared/state_machines.md)
+- **Callbacks** scoring + extraction: [reference/shared/callbacks.md](reference/shared/callbacks.md)
+- **Authorization** (Pundit): [reference/shared/authorization.md](reference/shared/authorization.md)
+- **Notifications** (Noticed): [reference/shared/notifications.md](reference/shared/notifications.md)
+- **Instrumentation** / EventReporter: [reference/shared/instrumentation.md](reference/shared/instrumentation.md)
+- **Components** (Phlex): [reference/shared/components.md](reference/shared/components.md)
+- **Serializers** (API JSON): [reference/shared/serializers.md](reference/shared/serializers.md)
+- **Architecture layers**: [reference/shared/architecture.md](reference/shared/architecture.md)
+- **Gem recommendations**: [reference/toolbelt.md](reference/toolbelt.md)
 
 For frontend patterns (Stimulus controllers, Turbo Frames/Streams), invoke
 the relevant `hwc-*` skill alongside this one.
