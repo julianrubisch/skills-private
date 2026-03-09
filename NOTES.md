@@ -12,6 +12,9 @@ Not content — instructions for the skill-building phase.
 - Prefer a **dev container** setup to isolate workloads. Every project should
   ship `.devcontainer/` for reproducible environments. See `devops.md §
   Development Environment` for the setup pattern.
+- **Implementation order heuristic** (from architect agent): when planning
+  multi-layer work, default to models → controllers → views/services → tests.
+  Coding skills should follow this order when scaffolding features.
 
 ---
 
