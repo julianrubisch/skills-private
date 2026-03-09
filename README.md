@@ -66,11 +66,46 @@ ln -s /path/to/jr-rails-skills/skills/jr-rails-classic ~/.claude/skills/jr-rails
 The `reference/` symlink resolves through the filesystem — Claude's Read
 tool follows symlinks transparently.
 
-## Publishing (Distribution)
+## Publishing to the Public Marketplace
 
-Skills reference shared files via a `reference/` symlink inside each skill
-directory. For distribution (zip, copy to another machine), resolve symlinks
-into real copies:
+Public skills are published to [`julianrubisch/skills`](https://github.com/julianrubisch/skills).
+
+### Automated (on push to main)
+
+The GitHub Action `.github/workflows/sync-public.yml` automatically syncs
+public skills on every push to `main`.
+
+### Manual
+
+1. Build the public distribution:
+   ```bash
+   ./scripts/publish.sh --public dist-public/
+   ```
+2. Verify output (no review-*.md, no jr-rails-review):
+   ```bash
+   ls dist-public/
+   find dist-public -name "review-*.md"  # should return nothing
+   ```
+3. Push to public repo:
+   ```bash
+   ./scripts/sync-public.sh
+   ```
+
+### Adding a New Public Skill
+
+1. Create the skill in `skills/<name>/SKILL.md`
+2. Add the skill name to `PUBLIC_SKILLS` in `scripts/publish.sh`
+3. Add an entry to `.claude-plugin/marketplace.json`
+4. Push to main — the sync action handles the rest
+
+### Keeping a Skill Private
+
+Simply don't add it to `PUBLIC_SKILLS` in `scripts/publish.sh`.
+Private reference files are listed in `PRIVATE_REFERENCE_PATTERNS`.
+
+### Full Distribution (all skills, private)
+
+For local/private distribution with all skills including jr-rails-review:
 
 ```bash
 ./scripts/publish.sh           # outputs to dist/

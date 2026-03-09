@@ -1,0 +1,66 @@
+name: Sync Public Skills
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout private repo
+        uses: actions/checkout@v4
+
+      - name: Build public distribution
+        run: ./scripts/publish.sh --public dist-public/
+
+      - name: Verify no private content
+        run: |
+          echo "Checking for private reference files..."
+          FOUND=$(find dist-public/ -name "review-*.md" 2>/dev/null || true)
+          if [ -n "$FOUND" ]; then
+            echo "ERROR: Private reference files found in public distribution:"
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "Checking for private skills..."
+          if [ -d "dist-public/jr-rails-review" ]; then
+            echo "ERROR: Private skill jr-rails-review found in public distribution"
+            exit 1
+          fi
+          echo "All clear."
+
+      - name: Sync to public repo
+        env:
+          PUBLIC_REPO_PAT: ${{ secrets.PUBLIC_REPO_PAT }}
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          WORK_DIR=$(mktemp -d)
+
+          git clone --depth 1 \
+            "https://x-access-token:${PUBLIC_REPO_PAT}@github.com/julianrubisch/skills.git" \
+            "$WORK_DIR/skills"
+
+          # Remove old content (preserve .git)
+          find "$WORK_DIR/skills" -maxdepth 1 \
+            -not -name '.git' -not -name '.' -not -name '..' \
+            -exec rm -rf {} +
+
+          # Copy new content
+          cp -r dist-public/* "$WORK_DIR/skills/"
+
+          cd "$WORK_DIR/skills"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+            echo "No changes to sync"
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "Sync from private repo @ $SHORT_SHA"
+          git push
+
+          echo "Synced to julianrubisch/skills @ $SHORT_SHA"
