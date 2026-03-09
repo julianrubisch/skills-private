@@ -228,6 +228,277 @@ end
 **When:** inline `.where` chains repeated in 2+ places, or query has 3+ conditions.
 **When not:** a simple named scope covers it.
 
+## Repositories
+
+**Edge case pattern** — repositories group cohesive sets of complex queries behind
+a clean interface. They complement Active Record rather than replacing it. This goes
+against vanilla Rails conventions, so reach for it only when the complexity justifies
+the abstraction.
+
+**The heuristic:** use a repository when you have 3+ complex queries that clearly
+belong to a single topic or concern (a dashboard, an analytics view, an activity
+feed). If the queries don't form a cohesive group, use individual query objects
+or scopes instead.
+
+### When to Use
+
+- Multiple related complex queries belonging to a clear concern (dashboard, analytics, activity feed)
+- Cross-model aggregation and reporting
+- External data source integration alongside local queries
+- Caching strategies for expensive read operations
+
+### When NOT to Use
+
+- Simple single-model queries — use scopes
+- CRUD operations — use Active Record directly
+- Individual complex queries — use query objects
+- Before the complexity actually materializes — don't pre-abstract
+
+### Dashboard Repository
+
+```ruby
+class DashboardRepository
+  def initialize(user)
+    @user = user
+  end
+
+  def stats
+    Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
+      {
+        total_posts: user_posts.count,
+        published_posts: user_posts.published.count,
+        total_views: total_views,
+        engagement_rate: calculate_engagement
+      }
+    end
+  end
+
+  private
+
+  attr_reader :user
+
+  def cache_key
+    "dashboard/#{user.id}/#{user.updated_at.to_i}"
+  end
+
+  def user_posts
+    @user_posts ||= Post.where(author: user)
+  end
+
+  def total_views
+    user_posts.sum(:views_count)
+  end
+
+  def calculate_engagement
+    return 0 if total_views.zero?
+    (Comment.where(post: user_posts).count.to_f / total_views * 100).round(2)
+  end
+end
+```
+
+### Activity Feed Repository
+
+Aggregates data from multiple models into a unified feed:
+
+```ruby
+class UserActivityRepository
+  def initialize(user)
+    @user = user
+  end
+
+  def recent_activity
+    activities = []
+    activities.concat(recent_posts)
+    activities.concat(recent_comments)
+    activities.concat(recent_likes)
+    activities.sort_by(&:created_at).reverse.first(20)
+  end
+
+  private
+
+  attr_reader :user
+
+  def recent_posts
+    user.posts.recent.limit(10).map do |post|
+      Activity.new(type: :post, record: post,
+        created_at: post.created_at, description: "Published '#{post.title}'")
+    end
+  end
+
+  def recent_comments
+    user.comments.recent.limit(10).map do |comment|
+      Activity.new(type: :comment, record: comment,
+        created_at: comment.created_at, description: "Commented on '#{comment.post.title}'")
+    end
+  end
+
+  def recent_likes
+    user.likes.recent.includes(:post).limit(10).map do |like|
+      Activity.new(type: :like, record: like,
+        created_at: like.created_at, description: "Liked '#{like.post.title}'")
+    end
+  end
+
+  Activity = Data.define(:type, :record, :created_at, :description)
+end
+```
+
+### Read Model Repository
+
+For complex reporting:
+
+```ruby
+class AnalyticsRepository
+  def post_performance(date_range:)
+    Post
+      .where(published_at: date_range)
+      .joins("LEFT JOIN comments ON comments.post_id = posts.id")
+      .joins("LEFT JOIN likes ON likes.post_id = posts.id")
+      .group("DATE(posts.published_at)")
+      .select(
+        "DATE(posts.published_at) AS date",
+        "COUNT(DISTINCT posts.id) AS posts_count",
+        "COUNT(DISTINCT comments.id) AS comments_count",
+        "COUNT(DISTINCT likes.id) AS likes_count",
+        "SUM(posts.views_count) AS total_views"
+      )
+      .order(:date)
+      .map { |row| PerformanceData.new(row.attributes.symbolize_keys) }
+  end
+
+  PerformanceData = Data.define(:date, :posts_count, :comments_count, :likes_count, :total_views) do
+    def engagement_rate
+      return 0 if total_views.zero?
+      ((comments_count + likes_count).to_f / total_views * 100).round(2)
+    end
+  end
+end
+```
+
+### External Data Integration
+
+```ruby
+class BookRepository
+  def initialize(api_client: GoogleBooksAPI.new)
+    @api_client = api_client
+  end
+
+  def find_with_external_data(isbn)
+    book = Book.find_by!(isbn: isbn)
+    external_data = fetch_external_data(isbn)
+
+    BookWithMetadata.new(
+      book: book, cover_url: external_data[:cover],
+      description: external_data[:description], rating: external_data[:average_rating]
+    )
+  end
+
+  private
+
+  attr_reader :api_client
+
+  def fetch_external_data(isbn)
+    Rails.cache.fetch("book_external/#{isbn}", expires_in: 1.day) do
+      api_client.fetch(isbn)
+    end
+  end
+
+  BookWithMetadata = Data.define(:book, :cover_url, :description, :rating) do
+    delegate_missing_to :book
+  end
+end
+```
+
+### Repository vs Query Object
+
+| Repository | Query Object |
+|------------|--------------|
+| Multiple related queries | Single query concern |
+| Cross-model aggregation | Single-model filtering |
+| External data integration | Database queries only |
+| Caching strategies | Composable query logic |
+| Read model concerns | Reusable query fragments |
+
+### Testing
+
+```ruby
+class DashboardRepositoryTest < ActiveSupport::TestCase
+  def setup
+    @user = users(:author)
+    @repository = DashboardRepository.new(@user)
+  end
+
+  test "#stats returns correct post counts" do
+    stats = @repository.stats
+
+    assert_equal @user.posts.count, stats[:total_posts]
+    assert_equal @user.posts.published.count, stats[:published_posts]
+  end
+
+  test "#stats caches results" do
+    first_result = @repository.stats
+    second_result = @repository.stats
+
+    assert_equal first_result, second_result
+  end
+end
+```
+
+### Anti-patterns
+
+**Thin wrapper over Active Record:**
+
+```ruby
+# BAD: No value added
+class PostRepository
+  def find(id) = Post.find(id)
+  def all = Post.all
+  def create(params) = Post.create(params)
+end
+
+# GOOD: Just use Active Record directly
+Post.find(id)
+```
+
+**Business logic in repository:**
+
+```ruby
+# BAD: Repository doing mutations and side effects
+class PostRepository
+  def publish(post)
+    post.update!(published_at: Time.current)
+    NotificationService.notify_subscribers(post)
+  end
+end
+
+# GOOD: Repository for reads, model methods for mutations
+class PostRepository
+  def published_with_stats
+    # Complex read query
+  end
+end
+```
+
+### File Organization
+
+```
+app/
+├── models/
+│   └── post.rb
+├── queries/
+│   └── post/
+│       └── trending_query.rb
+└── repositories/
+    ├── dashboard_repository.rb
+    ├── analytics_repository.rb
+    └── user_activity_repository.rb
+```
+
+**When:** 3+ complex queries form a cohesive group around a single concern (dashboard,
+analytics, activity feed), especially with caching or external data.
+**When not:** individual complex queries (use query objects), simple queries (use scopes),
+or when the grouping feels forced. Don't pre-abstract — let the need emerge.
+
 ## Filter Objects
 
 Transform datasets based on user-provided request parameters. Presentation layer —
