@@ -125,6 +125,39 @@ class Admin::PostSerializer < SimpleDelegator
 end
 ```
 
+## Alternative: ActiveModel::Serializers
+
+When the DSL pays for itself — associations, conditional attributes, many
+serializers with similar structure — `ActiveModel::Serializers` (AMS) reduces
+boilerplate. Trade-off: heavier dependency, less control over output shape.
+
+```ruby
+class ProductSerializer < ActiveModel::Serializer
+  attributes :id, :name, :price, :description, :created_at
+
+  has_many :reviews
+  belongs_to :category
+
+  def price
+    format("$%.2f", object.price)
+  end
+end
+
+# Usage — same as plain Ruby serializers
+render json: @product                          # auto-discovers ProductSerializer
+render json: @products, each_serializer: Product::ListSerializer
+```
+
+**When to reach for AMS over plain Ruby:**
+- 10+ serializers with similar attribute declarations
+- Heavy use of `has_many`/`belongs_to` in JSON responses
+- JSON:API format required (`ActiveModel::Serializer::Adapter::JsonApi`)
+
+**When to stay with plain Ruby:**
+- Full control over output shape needed
+- Few serializers, each with custom logic
+- Avoiding the gem dependency
+
 ## Anti-Patterns
 
 ### Overriding `#as_json` in Models

@@ -42,6 +42,7 @@ also referenced in their respective sections of `patterns.md` and `shared/`.
 |-----|---------|
 | [universalid](https://github.com/hopsoft/universalid) | Serialize any Ruby object (including AR models with unsaved changes) into compact, URL-safe strings — useful for passing complex state through URLs or preserving form state |
 | [composite_cache_store](https://github.com/hopsoft/composite_cache_store) | Multi-layered cache combining fast in-process memory with slower shared remote caches — optimizes hot paths without custom plumbing |
+| [active_model_serializers](https://github.com/rails-api/active_model_serializers) | DSL-based JSON serialization with associations — alternative to plain Ruby serializers when 10+ serializers share similar structure (see `shared/serializers.md`) |
 
 ## Notifications
 
@@ -65,6 +66,7 @@ also referenced in their respective sections of `patterns.md` and `shared/`.
 | [kamal](https://github.com/basecamp/kamal) | Zero-downtime deploys via Docker |
 | [thruster](https://github.com/basecamp/thruster) | HTTP/2 proxy with asset caching and compression for Puma |
 | [autotuner](https://github.com/Shopify/autotuner) | Rack middleware that analyzes GC behavior at runtime and suggests concrete tuning parameters |
+| [rack-attack](https://github.com/rack/rack-attack) | Request throttling and blocking — rate limiting for APIs (see `coding/api.md`) |
 
 ## Development & Debugging
 
