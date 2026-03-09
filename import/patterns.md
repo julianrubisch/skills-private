@@ -74,6 +74,129 @@ end
 **When:** inline `.where` chains repeated in 2+ places, or query has 3+ conditions.
 **When not:** a simple named scope covers it.
 
+## Filter Objects
+
+Transform datasets based on user-provided request parameters. Presentation layer —
+consumes controller params, applies transformations to domain collections. Can use
+query objects internally (filters orchestrate, queries implement).
+
+### Filter vs Query Object
+
+| Aspect | Filter Object | Query Object |
+|--------|---------------|--------------|
+| Layer | Presentation | Domain |
+| Input | Request params | Domain values |
+| Purpose | UI filtering/sorting | Reusable queries |
+| Location | `app/filters/` | `app/queries/` or `app/models/` |
+
+**Rule of thumb:** if the logic depends on `params`, it's a filter. If it encapsulates
+a reusable business query, it's a query object.
+
+### Standalone Filter Object
+
+```ruby
+# app/filters/projects_filter.rb
+class ProjectsFilter
+  ALLOWED_SORT_FIELDS = %w[name created_at].freeze
+
+  def initialize(relation, params)
+    @relation = relation
+    @params = params
+  end
+
+  def filter
+    result = @relation
+    result = filter_by_status(result)
+    result = filter_by_search(result)
+    result = apply_sorting(result)
+    result
+  end
+
+  private
+
+  def filter_by_status(relation)
+    return relation unless @params[:status].present?
+    relation.where(status: @params[:status])
+  end
+
+  def filter_by_search(relation)
+    return relation unless @params[:q].present?
+    relation.where("name ILIKE ?", "%#{@params[:q]}%")
+  end
+
+  def apply_sorting(relation)
+    field = @params[:sort_by]
+    return relation unless ALLOWED_SORT_FIELDS.include?(field)
+    relation.order(field => @params[:sort_order] || :asc)
+  end
+end
+```
+
+Controller usage:
+
+```ruby
+class ProjectsController < ApplicationController
+  def index
+    @projects = ProjectsFilter.new(Project.all, filter_params).filter
+  end
+
+  private
+
+  def filter_params
+    params.slice(:status, :q, :sort_by, :sort_order)
+          .permit(:status, :q, :sort_by, :sort_order)
+  end
+end
+```
+
+### Security
+
+Always allowlist at both layers:
+
+```ruby
+# Controller — only permit known filter keys
+def filter_params
+  params.slice(:status, :q).permit(:status, :q)
+end
+
+# Filter object — allowlist enum values
+ALLOWED_STATUSES = %w[draft published].freeze
+
+def filter_by_status(relation)
+  return relation unless ALLOWED_STATUSES.include?(@params[:status])
+  relation.where(status: @params[:status])
+end
+
+# Sorting — allowlist column names to prevent SQL injection
+ALLOWED_SORT_FIELDS = %w[name created_at].freeze
+```
+
+### Gem alternative: has_scope
+
+[has_scope](https://github.com/heartcombo/has_scope) (Heartcombo / Devise org)
+provides declarative param-to-scope mapping in controllers. Recommended when
+filter objects feel like overkill but inline `params[:x]` chains are growing:
+
+```ruby
+class ProjectsController < ApplicationController
+  has_scope :status
+  has_scope :search, as: :q
+  has_scope :sort_by, using: [:column, :direction], type: :hash
+
+  def index
+    @projects = apply_scopes(Project).all
+  end
+end
+```
+
+### Anti-patterns
+
+- **Filtering in controller** — inline `.where` chains based on params; extract to a filter object or use `has_scope`
+- **Universal filter object** — one god filter for all interfaces; create interface-specific filters instead (`Admin::UsersFilter`, `Api::V1::UsersFilter`)
+
+**When:** 3+ optional filter params in a controller action, or sorting/pagination logic mixed with filtering.
+**When not:** 1-2 simple scopes — inline or `has_scope` is enough.
+
 ## Value Objects
 
 Represent a domain concept with no identity — **fungible** objects whose equality
