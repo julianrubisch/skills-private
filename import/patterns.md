@@ -851,7 +851,47 @@ end
 ## Policy Objects (Pundit)
 
 Authorization rules live in policy objects, separate from models and controllers.
-One policy per resource, named `<Model>Policy`.
+One policy per resource, named `<Model>Policy`. Policies belong to the application
+layer — between presentation (enforcement) and domain (entities).
+
+### ApplicationPolicy Base Class
+
+```ruby
+# app/policies/application_policy.rb
+class ApplicationPolicy
+  attr_reader :user, :record
+
+  def initialize(user, record)
+    @user = user
+    @record = record
+  end
+
+  def index?   = false
+  def show?    = false
+  def create?  = false
+  def new?     = create?
+  def update?  = false
+  def edit?    = update?
+  def destroy? = false
+
+  class Scope
+    def initialize(user, scope)
+      @user = user
+      @scope = scope
+    end
+
+    def resolve
+      raise NotImplementedError
+    end
+
+    private
+
+    attr_reader :user, :scope
+  end
+end
+```
+
+### Simple Policy (Ownership + Admin)
 
 ```ruby
 # app/policies/card_policy.rb
@@ -870,8 +910,78 @@ class CardPolicy < ApplicationPolicy
     end
   end
 end
+```
 
-# Controller
+### Role-Based Policy (RBAC)
+
+```ruby
+class User < ApplicationRecord
+  enum :role, {regular: 0, admin: 1, librarian: 2}
+
+  PERMISSIONS = {
+    regular: %i[browse_catalogue borrow_books],
+    librarian: %i[browse_catalogue borrow_books manage_books],
+    admin: %i[browse_catalogue borrow_books manage_books manage_librarians]
+  }.freeze
+
+  def permission?(name)
+    PERMISSIONS.fetch(role.to_sym, []).include?(name)
+  end
+end
+
+# app/policies/book_policy.rb
+class BookPolicy < ApplicationPolicy
+  def show?
+    true
+  end
+
+  def destroy?
+    return true if user.permission?(:manage_all_books)
+    return false unless user.permission?(:manage_books)
+
+    # Attribute-based: department must match
+    record.dept == user.dept
+  end
+
+  def create?
+    user.permission?(:manage_books)
+  end
+
+  def update?
+    create?
+  end
+
+  class Scope < ApplicationPolicy::Scope
+    def resolve
+      if user.permission?(:manage_all_books)
+        scope.all
+      elsif user.permission?(:manage_books)
+        scope.where(dept: user.dept)
+      else
+        scope.none
+      end
+    end
+  end
+end
+```
+
+### Controller with `authorize` and `policy_scope`
+
+```ruby
+class BooksController < ApplicationController
+  def index
+    @books = policy_scope(Book)
+  end
+
+  def destroy
+    @book = Book.find(params[:id])
+    authorize @book
+
+    @book.destroy!
+    redirect_to books_path, notice: "Removed"
+  end
+end
+
 class CardsController < ApplicationController
   def update
     @card = Card.find(params[:id])
@@ -882,6 +992,135 @@ class CardsController < ApplicationController
 
   def index
     @cards = policy_scope(Card)
+  end
+end
+```
+
+### Authorization in Views
+
+```erb
+<% @books.each do |book| %>
+  <li>
+    <%= book.name %>
+    <% if policy(book).destroy? %>
+      <%= button_to "Delete", book, method: :delete %>
+    <% end %>
+  </li>
+<% end %>
+```
+
+### N+1 Authorization Problem
+
+```erb
+<% @posts.each do |post| %>
+  <% if policy(post).publish? %>  <%# N checks! %>
+    <%= button_to "Publish", ... %>
+  <% end %>
+<% end %>
+```
+
+**Solutions:**
+- Preload data needed by policy rules
+- Cache authorization results
+- Use scoping-based authorization (filter before rendering)
+
+### Testing
+
+Test policy rules separately from enforcement:
+
+```ruby
+class BookPolicyTest < ActiveSupport::TestCase
+  def setup
+    @librarian = users(:librarian)  # dept: "fiction"
+    @book = books(:fiction_book)    # dept: "fiction"
+  end
+
+  test "allows librarians to destroy books in their department" do
+    policy = BookPolicy.new(@librarian, @book)
+    assert policy.destroy?
+  end
+
+  test "denies librarians from other departments" do
+    other_book = books(:nonfiction_book)  # dept: "non-fiction"
+    policy = BookPolicy.new(@librarian, other_book)
+    assert_not policy.destroy?
+  end
+
+  test "allows admins to destroy any book" do
+    admin = users(:admin)
+    policy = BookPolicy.new(admin, @book)
+    assert policy.destroy?
+  end
+end
+
+class BookPolicyScopeTest < ActiveSupport::TestCase
+  test "librarians see only their department" do
+    librarian = users(:librarian)
+    scope = BookPolicy::Scope.new(librarian, Book.all).resolve
+    assert scope.all? { |b| b.dept == librarian.dept }
+  end
+end
+```
+
+Test enforcement in integration tests:
+
+```ruby
+class BooksControllerTest < ActionDispatch::IntegrationTest
+  test "unauthorized user cannot destroy book" do
+    sign_in users(:regular)
+    book = books(:fiction_book)
+
+    assert_no_difference "Book.count" do
+      delete book_path(book)
+    end
+
+    assert_response :redirect
+  end
+end
+```
+
+### Anti-patterns
+
+**Authorization in models:**
+
+```ruby
+# BAD
+class Book < ApplicationRecord
+  def destroyable_by?(user)
+    user.admin? || user.dept == dept
+  end
+end
+
+# GOOD: Keep in policy
+class BookPolicy < ApplicationPolicy
+  def destroy?
+    # ...
+  end
+end
+```
+
+**Mixed enforcement layers:**
+
+```ruby
+# BAD: Authorization in both controller AND service
+class BooksController
+  def destroy
+    authorize @book  # Here...
+    BookService.destroy(@book, current_user)
+  end
+end
+
+class BookService
+  def destroy(book, user)
+    raise unless user.can_destroy?(book)  # ...and here!
+  end
+end
+
+# GOOD: Single enforcement point
+class BooksController
+  def destroy
+    authorize @book
+    @book.destroy!
   end
 end
 ```
