@@ -379,5 +379,4 @@ Anti-patterns, smells, refactorings are included — needed by jr-rails-classic.
 - Published via `scripts/publish.sh --public` (resolves symlinks, strips
   private content, generates marketplace.json)
 - Synced via `scripts/sync-public.sh` and `.github/workflows/sync-public.yml`
-- Install: `npx add-skill julianrubisch/skills --skill jr-rails-classic`
-  or manual symlink
+- Install: `npx skills add julianrubisch/skills`
