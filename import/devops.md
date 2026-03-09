@@ -98,3 +98,82 @@ end
 ResourceRegistry.fetch(file_path) { File.read(file_path) }
 ```
 
+## Production Hardening
+
+### Puma Configuration
+
+Rails generates a reasonable default `config/puma.rb`. For production, ensure
+`preload_app!` is enabled for copy-on-write memory savings with workers:
+
+```ruby
+# config/puma.rb
+max_threads_count = ENV.fetch("RAILS_MAX_THREADS", 5)
+min_threads_count = ENV.fetch("RAILS_MIN_THREADS", max_threads_count)
+threads min_threads_count, max_threads_count
+
+port ENV.fetch("PORT", 3000)
+environment ENV.fetch("RAILS_ENV", "development")
+
+workers ENV.fetch("WEB_CONCURRENCY", 2)
+
+preload_app!
+```
+
+**Key settings:**
+- `preload_app!` — loads the app before forking workers (CoW-friendly, faster
+  boot). Trade-off: can't use phased restarts.
+- `WEB_CONCURRENCY` — number of worker processes. Start with 2, tune based on
+  available memory (each worker ≈ app memory footprint).
+- `RAILS_MAX_THREADS` — threads per worker. Match to database pool size.
+
+### Database Production Config
+
+Harden PostgreSQL connections with timeouts and pool management:
+
+```yaml
+# config/database.yml
+production:
+  adapter: postgresql
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
+  timeout: 5000
+  reaping_frequency: 10
+  connect_timeout: 2
+  variables:
+    statement_timeout: '30s'
+```
+
+**Key settings:**
+- `statement_timeout` — kills queries running longer than 30s. Prevents
+  runaway queries from holding connections.
+- `connect_timeout` — fail fast if DB is unreachable (2s instead of default ~60s).
+- `reaping_frequency` — how often to check for dead connections (seconds).
+- `pool` — must match `RAILS_MAX_THREADS` to avoid connection exhaustion.
+
+### SSL / HSTS
+
+```ruby
+# config/environments/production.rb
+config.force_ssl = true
+config.ssl_options = {
+  hsts: {
+    subdomains: true,
+    preload: true,
+    expires: 1.year
+  }
+}
+```
+
+### Dockerfile and CI
+
+Rails 7.1+ generates a production-optimized Dockerfile (multi-stage build,
+jemalloc, non-root user, Bootsnap precompilation) and a GitHub Actions CI
+workflow (security scans, lint, tests, system tests). Use the scaffold defaults
+— don't hand-roll these.
+
+```bash
+# Generated automatically by rails new:
+# Dockerfile          — multi-stage production build
+# .github/workflows/ci.yml  — CI with brakeman, rubocop, minitest
+# .dockerignore       — excludes dev/test artifacts
+```
+
