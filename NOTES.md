@@ -338,15 +338,16 @@ should prefer higher-priority refactorings when multiple apply.
 
 ---
 
-## TODO: Worktree + Devcontainer for Agentic Coding
+## Worktree + Devcontainer for Agentic Coding — ✅ DONE
 
-Devise an optional worktree + devcontainer setup for agentic coding using
-[worktrunk.dev](https://worktrunk.dev):
-
-- Wrap in a binstub (`bin/agent-worktree` or similar) for easy access
-- Add as an option to the `/jr-rails-new` skill (interview question)
-- Add as a devops addon section in `devops.md`
-- Should support Claude Code's `--worktree` flag and IDE worktree workflows
+Implemented in `reference/agentic-worktrees.md` with:
+- Worktrunk config (`.config/wt.toml`) with hooks and env passthrough
+- Three binstubs: `bin/agent-setup`, `bin/agent-server`, `bin/agent-archive`
+- CRC32-based port allocation (10 ports per workspace)
+- Docker Compose per-workspace isolation
+- Devcontainer variant (`.devcontainer/agent.json`)
+- Database isolation via workspace-suffixed DB names
+- Cross-referenced from `devops.md` and expanded in `jr-rails-new` SKILL.md step 3g
 
 ---
 
@@ -357,15 +358,26 @@ skill is built and functional, not before.
 
 ---
 
-## Distribution
+## Distribution — ✅ DECIDED
 
-Some skills will be released as free/open tools; others stay private. Don't
-settle on packaging or licensing yet — but keep this in mind when structuring
-the final skills:
+### Classification
 
-- Public skills should be self-contained (no references to private material)
-- Private skills can cross-reference other private material freely
-- Shared reference files (`shared/*.md`) may need to be split or duplicated
-  if some are public and some are private
-- Decide at build time which skills are public vs private, then verify no
-  private content leaks into public ones
+| Skill | Visibility | Reason |
+|-------|-----------|--------|
+| jr-rails-classic | PUBLIC | Coding guide |
+| jr-rails-new | PUBLIC | Scaffolder |
+| jr-rails-phlex | PUBLIC | Phlex guide |
+| jr-rails-review | PRIVATE | Premium review agent |
+
+### Reference material split
+
+All of `reference/` goes public EXCEPT `review-*.md` files (5 files).
+Anti-patterns, smells, refactorings are included — needed by jr-rails-classic.
+
+### Public repo: `julianrubisch/skills`
+
+- Published via `scripts/publish.sh --public` (resolves symlinks, strips
+  private content, generates marketplace.json)
+- Synced via `scripts/sync-public.sh` and `.github/workflows/sync-public.yml`
+- Install: `npx add-skill julianrubisch/skills --skill jr-rails-classic`
+  or manual symlink

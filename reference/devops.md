@@ -115,6 +115,11 @@ support feature stacking. This Dockerfile is strictly for dev, not production.
 
 Reference: https://www.rorvswild.com/blog/2025/dev-containers-rails
 
+## Agentic Worktree Workflow
+
+See [agentic-worktrees.md](agentic-worktrees.md) for isolating concurrent
+AI agent sessions with per-workspace databases, containers, and port ranges.
+
 ## Feature Flags
 
 Use **Flipper** to decouple deployment from release. Feature flags enable

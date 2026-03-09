@@ -167,18 +167,86 @@ Create `CLAUDE.md` in the app root with project conventions:
 
 #### 3g. Worktree config (if selected)
 
-Create `.claude/settings.json`:
+Set up the agentic worktree workflow using [worktrunk](https://worktrunk.dev).
+The exact setup depends on whether dev containers are also enabled (Q#6).
+
+**If dev container = yes AND worktree = yes (full isolation):**
+
+1. Create `.config/wt.toml`:
+
+```toml
+[worktree]
+path = "../.worktrees/{branch}"
+
+[hooks]
+post-create = "bin/agent-setup"
+pre-remove = "bin/agent-archive"
+
+[hooks.env]
+AGENT_ROOT_PATH = "{root}"
+AGENT_WORKSPACE = "{branch}"
+```
+
+2. Create the three binstubs from
+   [reference/agentic-worktrees.md](reference/agentic-worktrees.md):
+   - `bin/agent-setup` — port computation, symlinks, `docker compose up -d`,
+     `bin/setup`, `db:create db:schema:load`
+   - `bin/agent-server` — export PORT/DATABASE_URL, run `bin/dev`
+   - `bin/agent-archive` — `db:drop`, `docker compose down -v`, cleanup
+
+3. Create `.devcontainer/agent.json` extending the main devcontainer with
+   `AGENT_*` env vars forwarded into the container.
+
+4. Modify `config/database.yml` to use workspace-aware database names:
+
+```yaml
+development:
+  primary: &primary
+    adapter: postgresql
+    encoding: unicode
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
+    database: <%= "APP_NAME_#{ENV.fetch('AGENT_WORKSPACE', 'development')}" %>
+    host: localhost
+    port: <%= ENV.fetch("AGENT_DB_PORT", 5432) %>
+    username: postgres
+    password: postgres
+```
+
+5. Update `CLAUDE.md` with worktree workflow docs.
+
+**If dev container = no AND worktree = yes (port-based isolation only):**
+
+1. Create `.config/wt.toml` (same as above).
+
+2. Create the three binstubs (same as above, but skip `docker compose` calls —
+   services run on the host with port offsets only).
+
+3. Modify `config/database.yml` (same as above).
+
+4. Update `CLAUDE.md` with worktree workflow docs.
+
+**In both cases**, create `.claude/settings.json`:
 
 ```json
 {
   "permissions": {
     "allow": [
       "Bash(git worktree *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(wt *)",
+      "Bash(bin/agent-*)",
+      "Bash(docker compose *)"
     ]
   }
 }
 ```
+
+Add a section to the project README documenting the agentic worktree workflow
+(see [reference/agentic-worktrees.md § Project README](reference/agentic-worktrees.md)
+for the template).
+
+See [reference/agentic-worktrees.md](reference/agentic-worktrees.md) for full
+templates, port allocation scheme, and configuration details.
 
 #### 3h. Verify & Commit
 
