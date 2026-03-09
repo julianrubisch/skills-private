@@ -223,7 +223,7 @@ orchestration (mailers, jobs, external calls) out of models entirely.
 
 - If you can't name a class without "and" or "Manager", it has too many responsibilities
 - Jobs should be thin dispatchers — logic belongs in the domain layer
-- Ask of every callback: own state change, or side effect? Side effects belong in the caller
+- Ask of every callback: own state change, or side effect? Side effects belong in the caller or the event pipeline (see `shared/instrumentation.md`, `shared/callbacks.md`)
 - Prefer named domain objects (nouns) over procedural service objects (verb + "Service")
 - A model reaching out to create/destroy records in unrelated models is a SRP violation
 - All authorization scoping belongs in a Pundit policy scope, not in controller actions

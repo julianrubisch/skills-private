@@ -319,6 +319,10 @@ end
 - Easy to see all side effects for a given state change
 - `after_commit` ensures notifications only fire after successful persistence
 
+For complex cases with multiple subscribers per transition, consider emitting
+events via `Rails.event.notify` (8.1+) from `after_commit` callbacks instead
+of inline delivery calls — see `shared/instrumentation.md`.
+
 ## Events Over Direct Transitions
 
 ```ruby

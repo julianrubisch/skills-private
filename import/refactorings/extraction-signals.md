@@ -84,6 +84,9 @@ end
 
 ### Event-driven extraction
 
+> See `shared/instrumentation.md` for the full event pipeline reference —
+> `Rails.event` API, subscriber patterns, tags/context, and testing.
+
 #### Rails 8.1+: `Rails.event` (ActiveSupport::EventReporter)
 
 Built-in structured event bus. **In-process only** — subscribers run in the

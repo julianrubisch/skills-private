@@ -69,7 +69,8 @@ ActiveSupport::Notifications.instrument("invitation.created", invitation: self)
 ```
 
 See `refactorings/extraction-signals.md § Event-driven extraction` for
-subscriber setup and ops notes.
+subscriber setup and ops notes, and `shared/instrumentation.md` for the full
+event pipeline reference.
 
 ## When NOT to apply
 - The callback updates derived state on the same record (`before_save :normalize_email`,

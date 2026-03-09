@@ -263,6 +263,11 @@ end
 
 ## Callback to Service Extraction
 
+For callbacks with multiple subscribers reacting to the same event, consider
+the event pipeline instead of individual service objects — see
+`shared/instrumentation.md` for `Rails.event` (8.1+) and
+`ActiveSupport::Notifications`.
+
 Before (callbacks):
 
 ```ruby
