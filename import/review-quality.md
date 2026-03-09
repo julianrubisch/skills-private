@@ -160,11 +160,11 @@ def profile_links
   end
 end
 
-# GOOD — move to helper, ViewComponent, or presenter
+# GOOD — move to Phlex component or presenter
 ```
 
 **Signal:** `tag.`, `content_tag`, `link_to`, `image_tag`, `html_safe` in
-`app/models/`.
+`app/models/`. See `shared/components.md § Extraction Signals` for the full list.
 
 ### Symbol to Proc Over Explicit Blocks
 

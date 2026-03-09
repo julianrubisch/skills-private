@@ -83,6 +83,7 @@ Every abstraction layer must belong to a single architecture layer. An abstracti
 - Form objects (user input handling — straddle presentation/application boundary)
 - Filter objects (request parameter transformation)
 - Presenters (view-specific logic — see `patterns.md § Presenters`)
+- Components (reusable UI building blocks — see `shared/components.md`)
 
 **Primary concerns:**
 - Request parsing and validation

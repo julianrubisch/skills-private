@@ -330,6 +330,8 @@ When you spot one of these signals, reach for the corresponding refactoring:
 | `.where`/`.order` chains repeated in controllers or across contexts | `001` Extract Scope from Controller |
 | Transient attributes, UI-flow-specific validation, virtual fields on a model | `004` Introduce Form Object |
 | Same 2-3 primitive values always traveling together | `008` Introduce Parameter Object + Value Object (`composed_of`) |
+| Helper with heavy `tag.*` chains, complex data attributes, or nested yielding blocks | Extract to Phlex component (`shared/components.md § Extraction Signals`) |
+| Presenter building HTML via `content_tag`/`tag.*` | Extract to Phlex component (`shared/components.md § From Presenters`) |
 
 ## Quick Reference: Thresholds
 

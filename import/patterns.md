@@ -1305,6 +1305,9 @@ interface, strict isolation). Choose based on how much of the model the view nee
 
 > For API JSON responses, use **serializers** instead — same `SimpleDelegator`
 > pattern but targeting `#as_json`. See `shared/serializers.md`.
+>
+> When a presenter starts building HTML (`content_tag`, `tag.*`), extract to a
+> **Phlex component** instead. See `shared/components.md § Extraction Signals`.
 
 ### Open Presenter (Decorator)
 
