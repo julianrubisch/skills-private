@@ -227,3 +227,8 @@ end
 |-----|---------|
 | [alba](https://github.com/okuramasafumi/alba) | Fast JSON serialization with DSL — consider when plain Ruby serializers get repetitive |
 | [typelizer](https://github.com/skryukov/typelizer) | Generate TypeScript types from serializers — useful for SPA frontends |
+
+## See Also
+
+- `coding/api.md` — REST API patterns using serializers
+- `shared/graphql.md` — GraphQL types serve a similar role to serializers

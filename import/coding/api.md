@@ -337,5 +337,6 @@ end
 
 - `shared/serializers.md` — serialization patterns (SimpleDelegator + AMS alternative)
 - `shared/authorization.md` — Pundit policies (same policies for HTML and API)
+- `shared/graphql.md` — GraphQL reference (not preferred, for reviewing existing APIs)
 - `review-performance.md` — N+1 queries, HTTP caching, pagination
 - `coding-classic.md § REST Mapping` — RESTful route design principles

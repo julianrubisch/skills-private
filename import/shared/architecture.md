@@ -6,7 +6,7 @@ Rails applications are organized into four architecture layers with unidirection
 
 | Layer | Responsibility | Rails Examples |
 |-------|----------------|----------------|
-| **Presentation** | Handle user interactions, present information | Controllers, Views, Channels, Mailers |
+| **Presentation** | Handle user interactions, present information | Controllers, Views, Channels, Mailers, GraphQL types |
 | **Application** | Organize domain objects for use cases | Service objects, Form objects, Policy objects |
 | **Domain** | Entities, rules, invariants, application state | Models, Value objects, Domain events |
 | **Infrastructure** | Supporting technologies | Active Record, API clients, File storage |
