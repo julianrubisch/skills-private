@@ -725,11 +725,14 @@ end
 ## Presenters / Decorators
 
 Add display logic to a model without polluting it. Keeps views and models clean.
+Two flavors: **open** (decorator, delegates everything) and **closed** (explicit
+interface, strict isolation). Choose based on how much of the model the view needs.
+
+### Open Presenter (Decorator)
+
 Uses `SimpleDelegator` — the presenter *is* the model (all methods delegate through)
 but layers on view-specific formatting. The `h` accessor gives access to view helpers
 (routes, `link_to`, `number_to_currency`, etc.) when needed.
-
-### Base Class
 
 ```ruby
 # app/presenters/base_presenter.rb
@@ -744,34 +747,6 @@ class BasePresenter < SimpleDelegator
   end
 end
 ```
-
-### Helper
-
-Available in both controllers and views via a concern:
-
-```ruby
-# app/controllers/concerns/presentable.rb
-module Presentable
-  extend ActiveSupport::Concern
-
-  included do
-    helper_method :present
-  end
-
-  def present(model)
-    klass = "#{model.class}Presenter".constantize
-    presenter = klass.new(model, view_context)
-    block_given? ? yield(presenter) : presenter
-  end
-end
-
-# app/controllers/application_controller.rb
-class ApplicationController < ActionController::Base
-  include Presentable
-end
-```
-
-### Concrete Presenters
 
 ```ruby
 # app/presenters/contact_presenter.rb
@@ -821,6 +796,96 @@ class SearchprofilePresenter < BasePresenter
 end
 ```
 
+### Closed Presenter (Explicit Interface)
+
+Best for strict isolation — only expose what the view actually needs:
+
+```ruby
+# app/presenters/user_presenter.rb
+class UserPresenter
+  delegate :id, :to_model, to: :user
+
+  private attr_reader :user
+
+  def initialize(user)
+    @user = user
+  end
+
+  def short_name
+    user.name.squish.split(/\s/).then do |parts|
+      parts[0..-2].map { _1[0] + "." }.join + parts.last
+    end
+  end
+
+  def status_badge_class
+    case user.status
+    when "active" then "badge-success"
+    when "pending" then "badge-warning"
+    else "badge-secondary"
+    end
+  end
+
+  def member_since
+    user.created_at.strftime("%B %Y")
+  end
+end
+```
+
+### Multi-Model Presenter
+
+For composite UI elements that combine data from multiple sources:
+
+```ruby
+class User::BookPresenter < SimpleDelegator
+  private attr_reader :book_read
+
+  delegate :read?, :read_at, :score, to: :book_read
+
+  def initialize(book, book_read)
+    super(book)
+    @book_read = book_read
+  end
+
+  def progress_icon
+    read? ? "fa-circle-check" : "fa-clock"
+  end
+
+  def score_class
+    case score
+    when 0..2 then "text-red-600"
+    when 3...4 then "text-yellow-600"
+    when 4.. then "text-green-600"
+    end
+  end
+end
+```
+
+### Helper
+
+Available in both controllers and views via a concern:
+
+```ruby
+# app/controllers/concerns/presentable.rb
+module Presentable
+  extend ActiveSupport::Concern
+
+  included do
+    helper_method :present
+  end
+
+  def present(model)
+    klass = "#{model.class}Presenter".constantize
+    presenter = klass.new(model, view_context)
+    block_given? ? yield(presenter) : presenter
+  end
+end
+
+# app/controllers/application_controller.rb
+class ApplicationController < ActionController::Base
+  include Presentable
+end
+```
+
 ### Usage in Controller and View
 
 ```ruby
@@ -843,6 +908,98 @@ end
   <p><%= sp.delivery_string %></p>
   <p><%= sp.area_description %></p>
 <% end %>
+
+<%# Closed presenter — same helper works %>
+<% present(@user) do |p| %>
+  <span class="<%= p.status_badge_class %>">
+    <%= p.short_name %>
+  </span>
+  <small>Member since <%= p.member_since %></small>
+<% end %>
+```
+
+### Anti-patterns
+
+**Representation logic in models:**
+
+```ruby
+# BAD
+class User < ApplicationRecord
+  def status_badge_class
+    case status
+    when "active" then "badge-success"
+    # ...
+    end
+  end
+end
+
+# GOOD: Move to presenter
+class UserPresenter
+  def status_badge_class
+    # ...
+  end
+end
+```
+
+**Leaking decorators to lower layers:**
+
+```ruby
+# BAD: Presenter passed to service
+def create
+  @user = UserPresenter.new(User.find(params[:id]))
+  SomeService.call(@user)  # Presenter leaked to application layer!
+end
+
+# GOOD: Present only in views
+def show
+  @user = User.find(params[:id])
+end
+```
+
+**Global helpers with prefixed methods:**
+
+```ruby
+# BAD: Polluting helper namespace
+module UsersHelper
+  def user_short_name(user) = # ...
+  def user_status_badge(user) = # ...
+end
+
+# GOOD: Encapsulate in presenter
+class UserPresenter
+  def short_name = # ...
+  def status_badge_class = # ...
+end
+```
+
+### Testing
+
+```ruby
+class UserPresenterTest < ActiveSupport::TestCase
+  def setup
+    @user = User.new(name: "John Michael Doe", status: "active",
+                     created_at: Time.zone.local(2024, 1, 15))
+    @presenter = UserPresenter.new(@user)
+  end
+
+  test "#short_name abbreviates middle names" do
+    assert_equal "J.M.Doe", @presenter.short_name
+  end
+
+  test "#status_badge_class returns success for active users" do
+    assert_equal "badge-success", @presenter.status_badge_class
+  end
+
+  test "#status_badge_class returns warning for pending users" do
+    @user = User.new(name: "Jane Doe", status: "pending")
+    presenter = UserPresenter.new(@user)
+    assert_equal "badge-warning", presenter.status_badge_class
+  end
+
+  test "#member_since formats creation date" do
+    assert_equal "January 2024", @presenter.member_since
+  end
+end
 ```
 
 **When:** model methods start returning HTML, formatted strings, or view-specific logic.
