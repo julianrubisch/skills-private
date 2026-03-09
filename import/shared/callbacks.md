@@ -130,6 +130,9 @@ class CreateUser
 end
 ```
 
+For multi-channel notifications (email + push + in-app), consider the Noticed
+gem instead of scattered mailer calls — see `shared/notifications.md`.
+
 ## Callback Anti-Patterns
 
 ### Conditional Complexity

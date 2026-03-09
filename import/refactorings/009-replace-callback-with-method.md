@@ -79,4 +79,6 @@ event pipeline reference.
 - The callback dispatches to a background job (`after_create_commit :notify_later`)
   — async dispatch is an acceptable callback use; the job itself should be thin.
 
+For multi-channel notifications extracted from callbacks, see `shared/notifications.md`.
+
 _[Ruby Science →](https://thoughtbot.com/ruby-science/replace-callback-with-method.html)_

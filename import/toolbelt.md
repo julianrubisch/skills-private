@@ -43,6 +43,12 @@ also referenced in their respective sections of `patterns.md` and `shared/`.
 | [universalid](https://github.com/hopsoft/universalid) | Serialize any Ruby object (including AR models with unsaved changes) into compact, URL-safe strings — useful for passing complex state through URLs or preserving form state |
 | [composite_cache_store](https://github.com/hopsoft/composite_cache_store) | Multi-layered cache combining fast in-process memory with slower shared remote caches — optimizes hot paths without custom plumbing |
 
+## Notifications
+
+| Gem | Purpose |
+|-----|---------|
+| [noticed](https://github.com/excid3/noticed) | Multi-channel notifications with database persistence (see `shared/notifications.md`) |
+
 ## Forms & Callbacks
 
 | Gem | Purpose |
