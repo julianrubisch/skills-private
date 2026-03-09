@@ -135,11 +135,13 @@ Don't strip all logic from models into services (anemic models anti-pattern).
 - Message queue adapters
 - Cache implementations
 - Active Storage (external object storage)
+- Configuration classes (see `shared/configuration.md` for structured config objects)
 
 **Primary concerns:**
 - Persistence
 - External communication
 - Technical implementations
+- Configuration management
 
 ## Using These Principles
 

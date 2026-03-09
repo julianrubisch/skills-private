@@ -236,5 +236,7 @@ orchestration (mailers, jobs, external calls) out of models entirely.
 - Controllers with > 7 public actions are a REST violation — extract sub-resources (see `coding-classic.md § REST Mapping`)
 - Flag `.where`/`.order`/`.joins` chains in controllers — extract to named scopes or query objects
 
+- Scattered `ENV["KEY"]` reads across services indicate missing configuration abstraction — for 10+ settings across 3+ services, extract to config objects (see `shared/configuration.md`)
+
 See also: `anti-patterns.md` for external service handling (bare rescue, missing
 timeouts), migration hygiene, session management, and view logic anti-patterns.

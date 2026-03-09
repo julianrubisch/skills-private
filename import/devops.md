@@ -39,6 +39,15 @@ Reference: https://www.rorvswild.com/blog/2025/dev-containers-rails
 
 <!-- Flipper patterns, rollout strategies, measuring impact -->
 
+## Configuration Management
+
+For most apps, `Rails.application.credentials` or `ENV.fetch("KEY")` is enough.
+When settings grow to 10+ values across 3+ services, or for multi-tenant /
+self-hosted apps, consider structured config objects with boot-time validation.
+
+> See `shared/configuration.md` for the Anyway Config pattern, YAML source
+> precedence, and when the abstraction earns its keep.
+
 ## Performance Benchmarking
 
 ### Load Testing
