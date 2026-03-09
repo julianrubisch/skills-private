@@ -7,7 +7,33 @@ anti-patterns and smells point here for solutions.
 ## Query Objects
 
 Encapsulate complex or reusable AR queries. Reach for this when a scope isn't enough
-— multiple conditions, joins, subqueries, or shared across contexts. Two shapes:
+— multiple conditions, joins, subqueries, or shared across contexts.
+
+### ApplicationQuery Base Class
+
+Optional base class with convention-based model resolution. Namespace under
+the model (`Model::SomeQuery`) and the base relation is inferred automatically:
+
+```ruby
+# app/queries/application_query.rb
+class ApplicationQuery
+  class << self
+    def resolve(...) = new.resolve(...)
+
+    def query_model
+      name.sub(/::[^\:]+$/, "").safe_constantize
+    end
+  end
+
+  private attr_reader :relation
+
+  def initialize(relation = self.class.query_model&.all)
+    @relation = relation
+  end
+
+  def resolve(...) = relation
+end
+```
 
 ### Relation-Wrapping Query
 
@@ -15,13 +41,13 @@ Wraps an AR relation. Composable — accepts a base scope, returns a scope.
 
 ```ruby
 # app/queries/overdue_invoices_query.rb
-class OverdueInvoicesQuery
+class OverdueInvoicesQuery < ApplicationQuery
   def initialize(relation = Invoice.all)
     @relation = relation
   end
 
-  def call
-    @relation
+  def resolve
+    relation
       .where("due_date < ?", Date.today)
       .where(paid: false)
       .order(:due_date)
@@ -29,8 +55,59 @@ class OverdueInvoicesQuery
 end
 
 # Usage
-OverdueInvoicesQuery.new.call
-OverdueInvoicesQuery.new(current_user.invoices).call
+OverdueInvoicesQuery.new.resolve
+OverdueInvoicesQuery.new(current_user.invoices).resolve
+```
+
+### Parameterized Query
+
+```ruby
+class User::WithBookmarkedPostsQuery < ApplicationQuery
+  def resolve(period: :previous_week)
+    bookmarked_posts = build_bookmarked_posts_scope(period)
+    relation.with(bookmarked_posts:).joins(:bookmarked_posts)
+  end
+
+  private
+
+  def build_bookmarked_posts_scope(period)
+    Post.public_send(period)
+        .where.associated(:bookmarks)
+        .select(:user_id).distinct
+  end
+end
+
+# Default relation (User.all) inferred from namespace
+User::WithBookmarkedPostsQuery.resolve
+User::WithBookmarkedPostsQuery.new(account.users).resolve(period: :this_month)
+```
+
+### Arel for Composable Fragments
+
+Use Arel for reusable query fragments — avoids SQL string stitching:
+
+```ruby
+class Post::SearchQuery < ApplicationQuery
+  def resolve(query:)
+    relation.where(
+      Post.arel_table[:title].matches("%#{query}%")
+        .or(Post.arel_table[:body].matches("%#{query}%"))
+    )
+  end
+end
+```
+
+### Attaching Query Objects as Scopes
+
+```ruby
+class ApplicationRecord < ActiveRecord::Base
+  def self.query(query_class, ...)
+    query_class.new(all).resolve(...)
+  end
+end
+
+# Usage — composable with other scopes
+Post.published.query(Post::TrendingQuery, min_views: 50)
 ```
 
 ### Search / Filter Form
@@ -44,13 +121,13 @@ Lives in `app/models/`.
 class PostSearch
   include ActiveModel::Model
   include ActiveModel::Attributes
-  
+
   attribute :query, :string
   attribute :author_id, :integer
   attribute :status, :string
   attribute :sort_column, :string, default: "created_at"
   attribute :sort_direction, :string, default: "desc"
-  
+
   def results
     scope = Post.all
     scope = scope.where("title ILIKE ?", "%#{query}%") if query.present?
@@ -58,7 +135,7 @@ class PostSearch
     scope = scope.where(status: status) if status.present?
     scope.order(sort_column => sort_direction)
   end
-  
+
   def sort_options
     [
       ["Newest First", "created_at-desc"],
@@ -70,6 +147,83 @@ class PostSearch
 end
 ```
 
+### Atomic vs Complex Scopes
+
+**Atomic scopes stay in the model** — single condition, composable:
+
+```ruby
+class Post < ApplicationRecord
+  scope :published, -> { where.not(published_at: nil) }
+  scope :recent, -> { where(created_at: 1.week.ago..) }
+  scope :by_author, ->(user) { where(user:) }
+end
+
+# Compose them
+Post.published.recent.by_author(user)
+```
+
+**Complex scopes extract to query objects** — multiple conditions, context-specific:
+
+```ruby
+# BAD: Complex scope in model
+class Post < ApplicationRecord
+  scope :trending, -> {
+    joins(:views, :comments)
+      .where(views: {created_at: 1.day.ago..})
+      .group(:id)
+      .having("COUNT(views.id) > 100")
+      .order("COUNT(comments.id) DESC")
+  }
+end
+
+# GOOD: Query object
+class Post::TrendingQuery < ApplicationQuery
+  def resolve(min_views: 100, period: 1.day.ago..)
+    relation
+      .joins(:views, :comments)
+      .where(views: {created_at: period})
+      .group(:id)
+      .having("COUNT(views.id) > ?", min_views)
+      .order("COUNT(comments.id) DESC")
+  end
+end
+```
+
+### Anti-patterns
+
+**Over-scoping — conflicting orders:**
+
+```ruby
+# BAD: Scopes with implicit ordering
+scope :recent, -> { order(created_at: :desc) }
+scope :popular, -> { order(views_count: :desc) }
+
+Post.recent.popular  # Which order wins?
+```
+
+**Context-free queries in models:**
+
+```ruby
+# BAD: This is really "admin dashboard search"
+class User < ApplicationRecord
+  scope :search, ->(q) {
+    joins(:posts, :comments)
+      .where("users.name LIKE ?", "%#{q}%")
+      .or(where("posts.title LIKE ?", "%#{q}%"))
+  }
+end
+
+# GOOD: Context-specific query object
+class Admin::UserSearchQuery < ApplicationQuery
+  # ...
+end
+```
+
+### Related Gems
+
+| Gem | Purpose |
+|-----|---------|
+| [arel-helpers](https://github.com/camertron/arel-helpers) | Reduce Arel boilerplate for complex JOINs |
 
 **When:** inline `.where` chains repeated in 2+ places, or query has 3+ conditions.
 **When not:** a simple named scope covers it.
