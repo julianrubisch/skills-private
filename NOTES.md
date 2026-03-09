@@ -154,6 +154,37 @@ as part of a full testing review pass.
 
 ---
 
+## Shared Pattern Files — Processing Status
+
+Files in `import/shared/` were processed and either merged into `patterns.md`
+or kept as standalone references.
+
+**Merged into `patterns.md`** (source files deleted):
+- `filter_objects.md` → § Filter Objects (standalone filter class + has_scope)
+- `form_objects.md` → § Form Objects (ApplicationForm base, `.for` factory, after_commit)
+- `policy_objects.md` → § Policy Objects (rewritten from Action Policy → Pundit)
+- `presenters.md` → § Presenters (closed presenter, multi-model, anti-patterns)
+- `query_objects.md` → § Query Objects (ApplicationQuery base, `resolve`, Arel)
+- `repositories.md` → § Repositories (edge case, 3+ cohesive queries heuristic)
+- `value_objects.md` → § Value Objects (Data.define, JSON store, anti-patterns)
+
+**Kept as standalone in `shared/`** (cross-cutting, referenced by multiple skills):
+- `concerns.md` — concern design heuristics, rewritten to Minitest
+- `serializers.md` — SimpleDelegator-based, rewritten to Minitest
+- `state_machines.md` — rewritten from workflow gem → AASM, Minitest
+- `architecture.md` — not yet processed
+- `security.md` — not yet processed
+- `testing.md` — not yet processed
+
+**All RSpec → Minitest rewrites are complete** for processed files.
+
+### Gems to add to `toolbelt.md`
+
+- `store_model` — Active Model for JSON store attributes (from value_objects.md)
+- `frozen_record` — query static YAML/JSON like Active Record (from value_objects.md)
+
+---
+
 ## Blog Posts to Fetch at Skill-Build Time
 
 Fetch these URLs during skill construction and extract relevant content into the

@@ -629,6 +629,77 @@ is based entirely on their attributes, not an id. Two `Color.new(255, 0, 0)`
 instances are the same color. Small, immutable, and replaceable.
 Reach for this when you see data clumps or primitive obsession.
 
+**When to use:**
+- Domain concepts like Money, Address, Coordinates, MediaType
+- Groups of related attributes that travel together
+- Attributes with behavior (formatting, validation, comparison)
+- JSON/JSONB column wrappers with validation
+
+**When NOT to use:**
+- Entities with identity (needs its own table → use a model)
+- Simple scalar values without behavior
+
+### Using `Data.define` (Preferred for Simple VOs)
+
+Ruby's `Data.define` gives you immutability, equality, and pattern matching for
+free — the simplest way to build value objects:
+
+```ruby
+class MediaType < Data.define(:content_type)
+  SVG_TYPES = %w[image/svg image/svg+xml].freeze
+  FONT_TYPES = %w[font/otf font/ttf font/woff font/woff2].freeze
+
+  include Comparable
+
+  def <=>(other)
+    content_type <=> other.content_type
+  end
+
+  def video? = content_type.start_with?("video")
+  def image? = content_type.start_with?("image")
+  def svg?   = SVG_TYPES.include?(content_type)
+  def font?  = FONT_TYPES.include?(content_type)
+end
+
+# Usage
+media_type = MediaType.new("image/png")
+media_type.image?  #=> true
+media_type.video?  #=> false
+```
+
+```ruby
+class Money < Data.define(:amount_cents, :currency)
+  CURRENCIES = %w[USD EUR GBP].freeze
+
+  def initialize(amount_cents:, currency: "USD")
+    raise ArgumentError unless CURRENCIES.include?(currency)
+    super
+  end
+
+  def to_s = format("%.2f %s", amount_cents / 100.0, currency)
+
+  def +(other)
+    raise ArgumentError unless currency == other.currency
+    Money.new(amount_cents: amount_cents + other.amount_cents, currency:)
+  end
+
+  def *(multiplier)
+    Money.new(amount_cents: (amount_cents * multiplier).round, currency:)
+  end
+end
+
+# Usage
+price = Money.new(amount_cents: 1999, currency: "USD")
+price.to_s  #=> "19.99 USD"
+price * 2   #=> Money(amount_cents: 3998, currency: "USD")
+```
+
+### With ActiveModel (When Validation Needed)
+
+When you need `validates`, `ActiveModel::Attributes`, or form integration, reach
+for ActiveModel. Trade-off: ~4-13x slower than plain Data, but only optimize when
+profiling shows it's a bottleneck.
+
 ```ruby
 # app/models/color.rb — value object with equality, conversions, comparability
 class Color
@@ -701,10 +772,85 @@ Theme.where(primary_color: Color.new("#0000FF"))
   instead of `= Color.new("#FF0000")`.
 - `allow_nil:` — permits setting the value object to nil (all columns → NULL).
 
+### With JSON Store
+
+For JSON/JSONB columns, wrap the store in a value object with validations:
+
+```ruby
+class User < ApplicationRecord
+  store :address, coder: JSON
+
+  def address
+    @address ||= User::Address.new(super || {})
+  end
+
+  validate do |record|
+    next if address.valid?
+    record.errors.add(:address, "is invalid")
+  end
+end
+
+class User::Address
+  include ActiveModel::API
+  include ActiveModel::Attributes
+
+  attribute :country
+  attribute :city
+  attribute :street
+  attribute :zip
+
+  validates :country, :zip, presence: true
+
+  def full_address
+    [street, city, zip, country].compact.join(", ")
+  end
+end
+
+# Usage
+user = User.create!(address: {country: "USA", city: "Bronx", zip: "10463"})
+user.address.country       #=> "USA"
+user.address.full_address  #=> "Bronx, 10463, USA"
+```
+
+### Anti-Patterns
+
+**Mutable value objects:**
+
+```ruby
+# BAD
+class Address
+  attr_accessor :city, :street  # Mutable!
+end
+
+# GOOD: Use Data class (immutable)
+class Address < Data.define(:city, :street)
+end
+```
+
+**Value objects with side effects:**
+
+```ruby
+# BAD
+class Coordinates < Data.define(:lat, :lng)
+  def save_to_cache!
+    Rails.cache.write("coords", self)
+  end
+end
+
+# GOOD: Value objects are pure
+class Coordinates < Data.define(:lat, :lng)
+  def distance_to(other)
+    # Pure calculation
+  end
+end
+```
+
 **When:** same 2-3 primitive values always travel together, or you find yourself
-duplicating formatting/comparison logic for raw primitives. Especially when the
-values are denormalized columns on a single table.
-**When not:** the concept has its own identity (needs its own table → use a model).
+duplicating formatting/comparison logic for raw primitives. Prefer `Data.define`
+for simple cases; reach for ActiveModel when you need validations or form
+integration.
+**When not:** the concept has its own identity (needs its own table → use a model),
+or it's a simple scalar without behavior.
 
 ## Form Objects
 
