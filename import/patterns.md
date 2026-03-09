@@ -1054,22 +1054,26 @@ end
 
 ### Wizard Forms (Multi-Step)
 
-Use a state machine for complex multi-step forms. Validate only the current step:
+Use a state machine for complex multi-step forms. Validate only the current step
+(see `shared/state_machines.md` for full AASM reference):
 
 ```ruby
 class OnboardingForm < ApplicationForm
-  include Workflow
+  include AASM
 
-  workflow do
-    state :profile do
-      event :next, transitions_to: :preferences
+  aasm column: :step do
+    state :profile, initial: true
+    state :preferences
+    state :confirmation
+
+    event :next_step do
+      transitions from: :profile, to: :preferences
+      transitions from: :preferences, to: :confirmation
     end
-    state :preferences do
-      event :next, transitions_to: :confirmation
-      event :back, transitions_to: :profile
-    end
-    state :confirmation do
-      event :back, transitions_to: :preferences
+
+    event :prev_step do
+      transitions from: :preferences, to: :profile
+      transitions from: :confirmation, to: :preferences
     end
   end
 
@@ -1079,7 +1083,7 @@ class OnboardingForm < ApplicationForm
 
   def submit!
     return true unless confirmation?
-    User.create!(attributes.except(:workflow_state))
+    User.create!(attributes.except(:step))
   end
 end
 ```
@@ -1298,6 +1302,9 @@ end
 Add display logic to a model without polluting it. Keeps views and models clean.
 Two flavors: **open** (decorator, delegates everything) and **closed** (explicit
 interface, strict isolation). Choose based on how much of the model the view needs.
+
+> For API JSON responses, use **serializers** instead — same `SimpleDelegator`
+> pattern but targeting `#as_json`. See `shared/serializers.md`.
 
 ### Open Presenter (Decorator)
 
@@ -1856,6 +1863,9 @@ end
 **When:** authorization logic is conditional, role-based, or duplicated across controllers.
 **When not:** a simple `current_user.admin?` check in one place — inline is fine.
 
+> See `shared/authorization.md` for the full authorization reference — layer
+> placement, error handling (404 vs 403), ABAC patterns, and rule design heuristics.
+
 
 ## Calculator Objects
 
@@ -1989,3 +1999,17 @@ end
 
 See also: `refactorings/010-refactor-service-object-into-poro.md`,
 `review-architecture.md § Anti-patterns > Service Objects`
+
+## State Machines
+
+When a model has multiple related boolean/timestamp attributes tracking state,
+or complex conditional logic based on object state, extract into an explicit
+state machine using AASM. Prefer events over direct state assignment
+(`order.submit!` not `order.status = :submitted`).
+
+For simple linear progressions, a plain `enum` is enough — don't reach for a
+state machine prematurely.
+
+> See `shared/state_machines.md` for the full reference — AASM setup, guards,
+> callbacks, `after_commit` for side effects, standalone state machines, and
+> triggering deliveries from transitions.
