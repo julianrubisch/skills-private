@@ -278,6 +278,23 @@ test "message creation broadcasts to room" do
 end
 ```
 
+## Edge Cases Checklist
+
+Every public method should be tested against:
+- Nil / empty values
+- Boundary conditions (0, max, off-by-one)
+- Invalid inputs (wrong type, malformed data)
+- Error / exception paths
+- Authorization failures (wrong role, no session)
+
+## Test Performance
+
+- **Parallel tests** — `parallelize(workers: :number_of_processors)` in
+  `test_helper.rb` (Rails default since 6.0)
+- **Transactional fixtures** — default; avoid `DatabaseCleaner` unless needed
+- **Profile slow tests** — `bin/rails test --verbose` to spot outliers
+- **Avoid external calls** — VCR for HTTP, stubs for other I/O
+
 ## External APIs
 
 ```ruby
