@@ -60,13 +60,20 @@ also referenced in their respective sections of `patterns.md` and `shared/`.
 
 | Gem | Purpose |
 |-----|---------|
-| [solid_queue](https://github.com/rails/solid_queue) | Database-backed job queue — no Redis needed |
+| [solid_queue](https://github.com/rails/solid_queue) | Database-backed job queue — no Redis needed (see `shared/jobs.md`) |
+| [mission_control-jobs](https://github.com/rails/mission_control-jobs) | Web UI for Solid Queue — monitor queues, retry failed jobs |
 | [solid_cache](https://github.com/rails/solid_cache) | Database-backed cache store |
 | [solid_cable](https://github.com/rails/solid_cable) | Database-backed Action Cable adapter |
 | [kamal](https://github.com/basecamp/kamal) | Zero-downtime deploys via Docker |
 | [thruster](https://github.com/basecamp/thruster) | HTTP/2 proxy with asset caching and compression for Puma |
 | [autotuner](https://github.com/Shopify/autotuner) | Rack middleware that analyzes GC behavior at runtime and suggests concrete tuning parameters |
 | [rack-attack](https://github.com/rack/rack-attack) | Request throttling and blocking — rate limiting for APIs (see `coding/api.md`) |
+
+## Admin
+
+| Gem | Purpose |
+|-----|---------|
+| [avo](https://github.com/avo-hq/avo) | Admin panel framework — resource CRUD, dashboards, custom tools, built on Hotwire |
 
 ## Development & Debugging
 

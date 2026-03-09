@@ -296,6 +296,8 @@ end
 ## Background Jobs
 
 Jobs are thin wrappers over model methods. Logic lives on the model.
+See `shared/jobs.md` for idempotency, error handling, Continuations (8.1+),
+and Solid Queue configuration.
 
 ```ruby
 # _later / _now naming convention on the concern
