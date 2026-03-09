@@ -1,5 +1,8 @@
 # Code Quality Review Reference
 
+For the design principles underlying these patterns (SRP, DRY, Tell Don't Ask,
+etc.) and their mapping to specific smells, see `shared/principles.md`.
+
 ## Patterns
 <!-- What good Rails code looks like -->
 

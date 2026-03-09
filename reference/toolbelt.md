@@ -36,6 +36,8 @@ also referenced in their respective sections of `patterns.md` and `shared/`.
 | [pagy](https://github.com/ddnexus/pagy) | Fast, lightweight pagination |
 | [has_scope](https://github.com/heartcombo/has_scope) | Declarative param-to-scope mapping in controllers (see `patterns.md § Filter Objects`) |
 | [arel-helpers](https://github.com/camertron/arel-helpers) | Reduce Arel boilerplate for complex JOINs |
+| [store_model](https://github.com/DmitryTsepelev/store_model) | Active Model interfaces for JSON/JSONB store attributes — typed, validatable, nestable (see `patterns.md § Value Objects`) |
+| [frozen_record](https://github.com/byroot/frozen_record) | Query static YAML/JSON files with an ActiveRecord-like interface — ideal for lookup tables, configuration sets, and seed data that never changes at runtime |
 
 ## Serialization & Caching
 
@@ -69,6 +71,12 @@ also referenced in their respective sections of `patterns.md` and `shared/`.
 | [thruster](https://github.com/basecamp/thruster) | HTTP/2 proxy with asset caching and compression for Puma |
 | [autotuner](https://github.com/Shopify/autotuner) | Rack middleware that analyzes GC behavior at runtime and suggests concrete tuning parameters |
 | [rack-attack](https://github.com/rack/rack-attack) | Request throttling and blocking — rate limiting for APIs (see `coding/api.md`) |
+
+## Active Storage
+
+| Gem | Purpose |
+|-----|---------|
+| [active_storage-blurhash](https://github.com/avo-hq/active_storage-blurhash) | Auto-generates BlurHash placeholders for images on upload — eliminates layout shift with tiny inline previews while full images load |
 
 ## Admin
 

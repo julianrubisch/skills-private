@@ -210,10 +210,10 @@ as part of a full testing review pass.
 
 ---
 
-## Gems Still to Add to `toolbelt.md`
+## Gems Still to Add to `toolbelt.md` — ✅ DONE
 
-- `store_model` — Active Model for JSON store attributes (from value_objects.md)
-- `frozen_record` — query static YAML/JSON like Active Record (from value_objects.md)
+- ~~`store_model` — Active Model for JSON store attributes (from value_objects.md)~~
+- ~~`frozen_record` — query static YAML/JSON like Active Record (from value_objects.md)~~
 
 ---
 
@@ -234,71 +234,74 @@ target files listed. Ordered by recency — more recent = higher trust for curre
   **Status: distilled** into patterns.md § Form Objects
   **Pending:** Form builder content (StyledFormBuilder, custom form inputs) → coding-classic.md § View Helpers when expanded
 
-### → patterns.md
+### → patterns.md — ✅ DONE
 
 - **Kredis UI state container** (Mar 15, 2023)
   https://blog.appsignal.com/2023/03/15/a-generalized-user-local-container-for-ui-state-in-kredis.html
   _Reusable Kredis key generation, MutationObserver + Stimulus, server-side rehydration with Nokogiri_
+  **Status: distilled** into patterns.md § Kredis UI State Container
 
 - **DCI in Rails** (Jun 14, 2023)
   https://blog.appsignal.com/2023/06/14/setting-up-business-logic-with-dci-in-rails.html
   _Data/Context/Interaction pattern, runtime role injection, alternative to service objects_
+  **Status: distilled** into patterns.md § DCI Supplement
 
 - **Custom ActiveStorage analyzers** (Jul 30, 2025)
   https://blog.appsignal.com/2025/07/30/build-custom-activestorage-analyzers-for-ruby-on-rails.html
   _Extending ActiveStorage with custom analyzers, metadata column, analyzer registration order_
+  **Status: distilled** into patterns.md § ActiveStorage Custom Analyzers
 
 - **Custom ActiveStorage previewers** (Aug 13, 2025)
   https://blog.appsignal.com/2025/08/13/extend-activestorage-for-ruby-on-rails-with-custom-previewers.html
   _Custom previewers, waveform/blurhash examples, previewer registration_
+  **Status: distilled** into patterns.md § ActiveStorage Custom Previewers
 
-### → review-architecture.md
+### → review-architecture.md — ✅ DONE
 
 - **Organize business logic** (May 10, 2023)
   https://blog.appsignal.com/2023/05/10/organize-business-logic-in-your-ruby-on-rails-application.html
   _Fat models vs service objects vs jobs, event sourcing intro, previews DCI — good anti-pattern overview_
+  **Status: confirmed** — already covered in review-architecture.md, no changes needed
 
-### → review-performance.md
+### → review-performance.md — ✅ DONE
 
 - **Missing PostgreSQL indexes** (railsreviews.com)
   https://www.railsreviews.com/articles/missing-postgres-indexes
-  _Two diagnostic SQL queries worth embedding directly in the agent as runnable tools:_
-  _1. `pg_stat_all_tables`: seq_scan vs idx_scan delta, 80KB threshold to skip small tables_
-  _2. `pg_statio_user_tables`: index efficiency as cache hit ratio, sort ASC to find worst offenders_
+  **Status: distilled** into review-performance.md § Database Index Diagnostics
 
 - **Avo performance audit** (railsreviews.com)
   https://www.railsreviews.com/case-studies/avo
-  _Real-world audit — extract into review-performance.md AND review-quality.md_
+  **Status: distilled** into review-performance.md (multiple sections)
 
 - **HTTP caching in Rails** (Aug 14, 2024)
   https://blog.appsignal.com/2024/08/14/an-introduction-to-http-caching-in-ruby-on-rails.html
-  _Cache-Control, ETags, fresh_when, expires_in, cache leak prevention_
+  **Status: distilled** into review-performance.md § HTTP Caching / Cache-Control Headers
 
 - **PostgreSQL full-text search 300x speedup** (2024)
   https://www.rorvswild.com/blog/2024/speed-up-compound-full-text-searches-in-postgresql-by-300x
-  _Materialized views, GIN indexes, scenic gem_
+  **Status: distilled** into review-performance.md § Full-text Search via Materialized View
 
 - **Async pagination queries** (2025)
   https://www.rorvswild.com/blog/2025/optimize-pagination-speed-with-asynchronous-queries-in-ruby-on-rails
-  _load_async, async count with Pagy, connection pool caveats_
+  **Status: distilled** into review-performance.md § Pagy Async Count
 
-### → devops.md
+### → devops.md — ✅ DONE
 
 - **Feature flags with AppSignal** (Oct 2, 2024)
   https://blog.appsignal.com/2024/10/02/measuring-the-impact-of-feature-flags-in-ruby-on-rails-with-appsignal.html
-  _Flipper + AppSignal, percentage rollouts, measuring impact_
+  **Status: distilled** into devops.md § Feature Flags
 
 - **Dev containers for Rails** (2025)
   https://www.rorvswild.com/blog/2025/dev-containers-rails
-  _devcontainer.json, compose.yaml, VS Code + CLI + Codespaces_
+  **Status: distilled** into devops.md § Development Environment
 
 - **Feature flags comprehensive guide** (undated, cloud66)
   https://blog.cloud66.com/how-to-add-feature-flags-to-your-ruby-on-rails-applications
-  _Flipper deep-dive, actors/groups/percentage strategies_
+  **Status: distilled** into devops.md § Feature Flags
 
 - **Native vs containerized deployment** (~2024, cloud66)
   https://blog.cloud66.com/pros-and-cons-of-deploying-rails-applications-natively-vs-containerized-in-2024
-  _Kamal/Docker/PaaS/Kubernetes tradeoffs_
+  **Status: distilled** into devops.md § Deployment
 
 ### → defer to hwc-* skills (do not duplicate)
 
@@ -306,29 +309,10 @@ target files listed. Ordered by recency — more recent = higher trust for curre
 
 ---
 
-## Ruby Science Principles — Priority Order
+## Ruby Science Principles — ✅ DONE
 
-At skill-build time, create `import/shared/principles.md` with each principle
-described concisely. Review agents cite the violated principle when flagging smells.
-
-| Priority | Principle | Status |
-|----------|-----------|--------|
-| 1 | Tell, Don't Ask | ⚠️ implicit in Feature Envy — needs explicit entry |
-| 2 | Composition over Inheritance | ⚠️ named in patterns.md + review-architecture — needs entry |
-| 3 | Single Responsibility Principle | ⚠️ implicit in review-architecture — needs entry |
-| 4 | Dependency Inversion Principle | ❌ missing |
-| 5 | Open/Closed Principle | ❌ missing |
-| 6 | Law of Demeter | ⚠️ related to Inappropriate Intimacy — needs entry |
-| 7 | DRY | ⚠️ implicit in Shotgun Surgery — needs entry |
-
-**Principle → smell mapping** (for review agent wiring):
-- Tell, Don't Ask → Feature Envy, CQS Violation
-- Composition over Inheritance → Large Class, Callback, Long Case Statement
-- SRP → Divergent Change, Large Class, Callback
-- DIP → Feature Envy, Inappropriate Intimacy
-- OCP → Case Statement, Long Case Statement
-- Law of Demeter → Inappropriate Intimacy, Feature Envy
-- DRY → Shotgun Surgery, Divergent Change
+Created `reference/shared/principles.md` with all 7 principles, concise
+descriptions, and principle → smell mappings for review agent wiring.
 
 ---
 
@@ -351,6 +335,18 @@ should prefer higher-priority refactorings when multiple apply.
 - Large Class → Introduce Form Object, Replace Mixin with Composition
 - Callback → Replace Callback with Method
 - God Class → Introduce Form Object, Replace Mixin with Composition, Replace Subclasses with Strategies, Replace Conditional with Polymorphism, Rename Service Object to Domain Model
+
+---
+
+## TODO: Worktree + Devcontainer for Agentic Coding
+
+Devise an optional worktree + devcontainer setup for agentic coding using
+[worktrunk.dev](https://worktrunk.dev):
+
+- Wrap in a binstub (`bin/agent-worktree` or similar) for easy access
+- Add as an option to the `/jr-rails-new` skill (interview question)
+- Add as a devops addon section in `devops.md`
+- Should support Claude Code's `--worktree` flag and IDE worktree workflows
 
 ---
 

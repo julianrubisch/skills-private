@@ -71,6 +71,42 @@ def index
 end
 ```
 
+### Cache-Control Headers and Cache Leak Prevention
+
+`fresh_when` and `expires_in` set `Cache-Control` headers. Understand the
+directives they control:
+
+| Directive | Meaning |
+|-----------|---------|
+| `private` | Only the browser may cache (default in Rails) |
+| `public` | Any shared cache (CDN, proxy) may cache |
+| `no-cache` | Cache may store, but must revalidate with origin before serving |
+| `no-store` | Cache must not store any part of the response |
+| `max-age=N` | Response is fresh for N seconds |
+| `s-maxage=N` | Like max-age but for shared caches only (CDN) |
+| `stale-while-revalidate=N` | Serve stale content for N seconds while revalidating in background |
+
+```ruby
+# CDN-friendly with stale-while-revalidate fallback
+def index
+  @articles = Article.published
+  expires_in 5.minutes, public: true, stale_while_revalidate: 1.minute
+end
+
+# Prevent caching entirely for sensitive pages
+def billing
+  response.headers["Cache-Control"] = "no-store"
+end
+```
+
+**Cache leak prevention checklist:**
+- Always scope ETags to `current_user&.id` — a missing user scope means User A
+  can receive User B's cached response from a shared cache.
+- Never use `public: true` on pages that contain user-specific content.
+- Add `Vary: Accept` header when the same URL serves HTML and JSON (Turbo).
+- If using a CDN, ensure authenticated endpoints send `Cache-Control: private`
+  — Rails does this by default, but verify it's not overridden.
+
 ### Fragment and Russian Doll Caching
 
 Cache partials at the fragment level. Nest cache blocks for automatic
@@ -136,6 +172,45 @@ to improve Largest Contentful Paint.
 <%= preload_link_tag url_for(@resource.cover_image), as: :image %>
 ```
 
+### Memoization for Expensive Method Calls
+
+Memoize methods that are called multiple times per request but return the same
+value. Common in helpers, decorators, and components.
+
+```ruby
+# GOOD — computed once per instance lifetime
+def permitted_actions
+  @permitted_actions ||= policy.actions_for(current_user, resource)
+end
+
+# For methods that can return nil or false, ||= silently re-evaluates.
+# Use defined? or an explicit sentinel:
+def cached_result
+  return @cached_result if defined?(@cached_result)
+  @cached_result = expensive_computation
+end
+```
+
+**Where to look for missing memoization:**
+- ViewComponent methods called from the template multiple times
+- Policy/authorization checks repeated across partials
+- Configuration lookups that hit the database (e.g. `Tenant.current.settings`)
+- Methods called inside loops that return the same value every iteration
+
+**Anti-pattern — memoizing at the class level by accident:**
+
+```ruby
+# BAD — persists across requests in a threaded server (Puma)
+def self.settings
+  @@settings ||= Setting.current
+end
+
+# GOOD — use RequestStore or Current attributes for per-request memoization
+def settings
+  RequestStore[:settings] ||= Setting.current
+end
+```
+
 ### ViewComponent Collection Rendering
 
 Use `render ComponentName.with_collection(items)` instead of iterating with
@@ -176,6 +251,34 @@ def index
 end
 ```
 
+### Pagy Async Count for Pagination
+
+Pagy normally runs a synchronous `COUNT(*)` before fetching results. Even with
+`load_async` on the results query, the count blocks the controller. Fix by
+running the count asynchronously too, then passing the resolved value to Pagy.
+
+```ruby
+def index
+  scope = Post.published.order(:created_at)
+
+  # Fire both queries concurrently — neither blocks until .value / iteration
+  count_promise = scope.async_count
+  @posts = scope.load_async
+
+  # Pagy accepts a pre-computed count — .value blocks only when needed
+  @pagy = Pagy.new(count: count_promise.value, page: params[:page])
+  @posts = @posts.offset(@pagy.offset).limit(@pagy.limit)
+end
+```
+
+**Why this matters:** On tables with millions of rows, `COUNT(*)` can take
+hundreds of milliseconds. Without async count, total wall time is
+`count_time + results_time`. With both async, it's `max(count_time, results_time)`.
+
+**Pool sizing caveat:** Each async query borrows an additional connection. Size
+your pool accordingly (see "Async Queries Without Connection Pool Awareness"
+anti-pattern below).
+
 ### Full-text Search via Materialized View + GIN Index
 
 For cross-table full-text search, a materialized view with GIN index outperforms
@@ -203,6 +306,43 @@ add_index :searchable_posts, :search_vector, using: :gin
 
 Sync the view via a background job triggered by model callbacks on write.
 
+#### Scenic Gem Workflow
+
+The `scenic` gem manages materialized views through standard Rails migrations:
+
+```bash
+# Generate the initial view (creates SQL file + migration)
+bin/rails generate scenic:view searchable_posts
+
+# Creates:
+#   db/views/searchable_posts_v01.sql        — write your SELECT here
+#   db/migrate/..._create_searchable_posts.rb
+
+# To update the view later, generate a new version:
+bin/rails generate scenic:view searchable_posts
+#   db/views/searchable_posts_v02.sql        — new SQL definition
+#   db/migrate/..._update_searchable_posts_to_version_2.rb
+```
+
+```ruby
+# The model backs the view — set it as read-only
+class SearchablePost < ApplicationRecord
+  self.primary_key = :id
+
+  def self.refresh
+    Scenic.database.refresh_materialized_view(table_name, concurrently: true, cascade: false)
+  end
+end
+
+# Refresh concurrently requires a unique index on the materialized view
+add_index :searchable_posts, :id, unique: true
+```
+
+**Refresh strategies:**
+- `concurrently: true` — does not lock reads during refresh (requires unique index)
+- Trigger refresh from an `after_commit` callback via a background job
+- For high-write apps, debounce refreshes (e.g. at most once per minute)
+
 ### Database Index Diagnostics
 
 Two SQL queries worth running during any performance review:
@@ -226,7 +366,37 @@ FROM pg_statio_user_tables
 WHERE idx_blks_read + idx_blks_hit > 0
 ORDER BY index_efficiency ASC
 LIMIT 10;
+
+-- 3. Find unused indexes (candidates for removal — saves write overhead)
+SELECT schemaname, relname AS table_name,
+       indexrelname AS index_name,
+       idx_scan AS times_used,
+       pg_size_pretty(pg_relation_size(indexrelid)) AS index_size
+FROM pg_stat_user_indexes
+WHERE idx_scan = 0
+  AND indexrelname NOT LIKE '%_pkey'
+  AND indexrelname NOT LIKE '%unique%'
+ORDER BY pg_relation_size(indexrelid) DESC;
+
+-- 4. Find duplicate indexes (same columns indexed multiple times)
+SELECT pg_size_pretty(sum(pg_relation_size(idx))::bigint) AS size,
+       (array_agg(idx))[1] AS idx1, (array_agg(idx))[2] AS idx2
+FROM (
+  SELECT indexrelid::regclass AS idx,
+         (indrelid::text || E'\n' || indclass::text || E'\n' ||
+          indkey::text || E'\n' || coalesce(indexprs::text, '') || E'\n' ||
+          coalesce(indpred::text, '')) AS key
+  FROM pg_index
+) sub
+GROUP BY key HAVING count(*) > 1
+ORDER BY sum(pg_relation_size(idx)) DESC;
 ```
+
+**When to act:**
+- **Unused indexes** (query 3): Remove after stats have accumulated for weeks.
+  Exception: unique indexes enforce constraints regardless of scan count.
+- **Duplicate indexes** (query 4): A composite index on `(a, b)` covers queries
+  on `a` alone — a separate index on just `a` is wasted space and write overhead.
 
 ## Anti-patterns
 
@@ -342,6 +512,10 @@ Order.sum(:total)
 - Materialized views are a read/write tradeoff: only worth it when search is frequent and write latency is acceptable
 - Sequential scan is fine on tables under ~80KB — don't index everything
 - Timezone in the ETag is not optional when times render server-side
+- Pagy's COUNT query is a hidden sequential bottleneck — use `async_count` + `Pagy.new(count:)` to parallelize it
+- Memoize any method called more than once per request that hits the DB or does non-trivial computation
+- Unused indexes waste disk and slow writes — audit with `pg_stat_user_indexes` periodically
+- `stale_while_revalidate` gives users instant responses while the cache refreshes in the background
 
 
 ### Additional Heuristic to find missing indexes

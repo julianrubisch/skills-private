@@ -385,6 +385,13 @@ def show
   expires_in 1.year, public: true
   redirect_to @user.avatar.variant(:thumb).processed.url, allow_other_host: true
 end
+
+# BlurHash placeholders — eliminates layout shift while images load
+# gem "active_storage-blurhash"
+has_one_attached :cover_image
+# Generates blurhash automatically on upload; access via:
+# @post.cover_image.metadata["blurhash"]
+# Render as tiny inline placeholder in views while full image loads
 ```
 
 ---
@@ -450,6 +457,7 @@ Preferences only — full testing guide in `shared/testing.md`.
 | Cache/Cable | Solid Cache, Solid Cable |
 | Authorization | Pundit |
 | Rich text | Lexxy |
+| Image placeholders | active_storage-blurhash |
 | Mailer utils | Mittens |
 | Deployment | Kamal + Thruster |
 | Job monitoring | Mission Control Jobs |

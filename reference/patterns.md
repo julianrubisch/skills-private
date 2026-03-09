@@ -2016,3 +2016,363 @@ state machine prematurely.
 > See `shared/state_machines.md` for the full reference — AASM setup, guards,
 > callbacks, `after_commit` for side effects, standalone state machines, and
 > triggering deliveries from transitions.
+
+## Kredis UI State Container
+
+Generalized pattern for persisting ephemeral UI state (accordion open/closed,
+tab selections, sidebar collapse) across page reloads using Kredis, Stimulus,
+and server-side DOM rehydration with Nokogiri. Works best with HTML-over-the-wire
+architectures where UI state lives in HTML attributes.
+
+### Key Generation
+
+Generate obfuscated, user-scoped Kredis keys by combining the current user,
+resource, and template location. Digest prevents tampering in dev tools:
+
+```ruby
+# app/helpers/application_helper.rb
+def ui_state_key(name)
+  key = cache_fragment_name(name, skip_digest: true)
+    .flatten.compact
+    .map(&:cache_key)
+    .join(":")
+  key += ":#{caller.find { _1 =~ /html/ }}"
+  ActiveSupport::Digest.hexdigest(key)
+end
+```
+
+### MutationObserver + Stimulus Controller
+
+A Stimulus controller watches all attribute changes on its element via
+`MutationObserver` and PATCHes them to a server endpoint. No per-feature
+wiring needed — any attribute change is captured automatically:
+
+```javascript
+// app/javascript/controllers/ui_state_controller.js
+export default class extends Controller {
+  static values = { key: String };
+
+  connect() {
+    this.mutationObserver = new MutationObserver(
+      this.mutateState.bind(this)
+    );
+    this.mutationObserver.observe(this.element, { attributes: true });
+  }
+
+  disconnect() {
+    this.mutationObserver?.disconnect();
+  }
+
+  async mutateState() {
+    const body = new FormData();
+    const attributes = {};
+    this.element.getAttributeNames()
+      .filter((name) => name !== "data-controller")
+      .map((name) => {
+        attributes[name] = this.element.getAttribute(name);
+      });
+    body.append("key", this.keyValue);
+    body.append("attributes", JSON.stringify(attributes));
+    await patch("/ui_state/update", { body });
+  }
+}
+```
+
+### Server-Side Storage
+
+Store sanitized attributes in Kredis as JSON:
+
+```ruby
+class UiStateController < ApplicationController
+  def update
+    ui_state = Kredis.json params[:key]
+    ui_state.value = JSON.parse(params[:attributes])
+      .deep_transform_values { sanitize(_1) }
+    head :ok
+  end
+end
+```
+
+### Server-Side Rehydration with Nokogiri
+
+On render, restore saved attributes onto the DOM element before it reaches the
+browser. Nokogiri parses the block's HTML, applies stored attributes, and
+injects the Stimulus controller:
+
+```ruby
+# app/helpers/application_helper.rb
+def remember_ui_state_for(name, &block)
+  html = capture(&block).to_s.strip
+  fragment = Nokogiri::HTML.fragment(html)
+  el = fragment.first_element_child
+
+  ui_state = Kredis.json(ui_state_key(name))
+  ui_state.value&.each do |attr, value|
+    el[attr] = sanitize(value, tags: [])
+  end
+
+  el["data-controller"] =
+    "#{el["data-controller"]} ui-state".strip
+  el["data-ui-state-key-value"] = ui_state_key(name)
+
+  el.to_html.html_safe
+end
+```
+
+Usage in views:
+
+```erb
+<%= remember_ui_state_for([current_user, product]) do %>
+  <details>
+    <summary>Description</summary>
+    <%= product.description %>
+  </details>
+<% end %>
+```
+
+**When to reach for this:** you need per-user UI state persistence (accordions,
+collapsible panels, tab selections) without building individual Kredis keys for
+each feature. One generalized mechanism covers any element whose state lives in
+HTML attributes.
+
+## DCI (Data, Context, Interaction) — Supplement
+
+> Core pattern covered in `review-architecture.md § DCI`. This section adds
+> the `surrounded` gem approach and testing guidance from practical use.
+
+### The `surrounded` Gem
+
+Jim Gay's `surrounded` gem reduces DCI boilerplate. Define roles inline with
+`role` blocks — methods become available only within the context:
+
+```ruby
+class Checkout
+  extend Surrounded::Context
+
+  role :payable do
+    def create_session
+      Stripe::Checkout::Session.create({
+        line_items: line_items,
+        metadata: { gid: to_gid.to_s },
+        success_url: polymorphic_url(self)
+      })
+    end
+
+    def fulfill
+      # fulfillment logic
+    end
+  end
+end
+
+# Usage — same context works for any object with `line_items`
+Checkout.new(payable: @quote).create_session
+Checkout.new(payable: @review).create_session
+```
+
+Roles are garbage-collected with the context — no permanent pollution of the
+data model.
+
+### Testing DCI Contexts
+
+Test through the context directly. Enact the interaction and verify outcomes:
+
+```ruby
+class CheckoutTest < ActiveSupport::TestCase
+  test "stripe session includes gid in metadata" do
+    quote = quotes(:accepted_quote)
+    session = Checkout.new(payable: quote).create_session
+    assert_equal quote, GlobalID::Locator.locate(session.metadata.gid)
+  end
+end
+```
+
+### When DCI Fits Best
+
+Best for third-party API integrations and fringe concerns that don't change
+often. Avoid for core domain logic where the behavioral split may reduce
+cohesion. The context should make no assumptions about concrete types — only
+that mapped roles respond to the required interface (`line_items`, `increase`,
+`decrease`, etc.).
+
+## ActiveStorage Custom Analyzers
+
+Extend ActiveStorage's analysis pipeline with custom analyzers that extract
+domain-specific metadata at upload time. Metadata persists in the
+`active_storage_blobs.metadata` JSON column — computed once, available everywhere.
+
+### Custom Analyzer Class
+
+Subclass `ActiveStorage::Analyzer` (or a built-in like `AudioAnalyzer`,
+`ImageAnalyzer::ImageMagick`). Override `metadata` and merge with `super`:
+
+```ruby
+# lib/active_storage/waveform_analyzer.rb
+module ActiveStorage
+  class WaveformAnalyzer < ActiveStorage::Analyzer::AudioAnalyzer
+    def metadata
+      super.merge(waveform)
+    end
+
+    private
+
+    def waveform
+      rms_values = []
+      download_blob_to_tempfile do |file|
+        IO.popen([ffmpeg_path, "-i", file.path, "-ac", "1",
+                  "-f", "f32le", "-"], "rb") do |io|
+          chunk_size = 512 * 4
+          while (chunk = io.read(chunk_size))
+            floats = chunk.unpack("e*")
+            next if floats.empty?
+            rms = Math.sqrt(floats.sum { _1**2 } / floats.size)
+            rms_values << rms
+          end
+        end
+      end
+      { waveform: rms_values }
+    end
+
+    def ffmpeg_path
+      ActiveStorage.paths[:ffmpeg] || "ffmpeg"
+    end
+  end
+end
+```
+
+### Blurhash Analyzer
+
+```ruby
+class BlurhashAnalyzer < ActiveStorage::Analyzer::ImageAnalyzer::ImageMagick
+  def metadata
+    read_image do |image|
+      build_thumbnail(image)
+      super.merge(blurhash: compute_blurhash)
+    end
+  end
+
+  private
+
+  def build_thumbnail(image)
+    @thumbnail ||= MiniMagick::Image.open(
+      ImageProcessing::MiniMagick
+        .source(image.path)
+        .resize_to_limit(200, 200)
+        .loader(page: 0)
+        .call.path
+    )
+  end
+
+  def compute_blurhash
+    Blurhash.encode(@thumbnail.width, @thumbnail.height,
+                    @thumbnail.get_pixels.flatten)
+  end
+end
+```
+
+### Registration Order
+
+Register in an initializer with `prepend` — the **first** analyzer whose
+`accept?` returns `true` wins. `prepend` ensures your custom analyzer runs
+before built-in ones:
+
+```ruby
+# config/initializers/active_storage.rb
+require_relative "../../lib/active_storage/waveform_analyzer"
+
+Rails.application.config.active_storage.analyzers.prepend(
+  ActiveStorage::WaveformAnalyzer
+)
+```
+
+### Accessing Metadata
+
+No migration needed — metadata lives in the existing `metadata` text column:
+
+```ruby
+song.recording.blob.metadata
+# => {"identified"=>true, "waveform"=>[0.000123, 0.000873, ...]}
+
+song.recording.metadata[:waveform]
+```
+
+**When to reach for this:** you need to precompute expensive presentation data
+(waveforms for audio players, blurhashes for image placeholders, PDF page
+counts) once at upload time rather than on every render.
+
+## ActiveStorage Custom Previewers
+
+Convert non-image attachments (audio, video, PDFs) into displayable image
+previews. Previewers complement analyzers — analyzers extract metadata,
+previewers generate visual representations.
+
+### Custom Previewer Class
+
+Subclass `ActiveStorage::Previewer`. Implement the class method `accept?` and
+the instance method `preview`:
+
+```ruby
+# lib/active_storage/waveform_previewer.rb
+require "chunky_png"
+
+module ActiveStorage
+  class WaveformPreviewer < ActiveStorage::Previewer
+    class << self
+      def accept?(blob)
+        blob.audio? && blob.metadata[:waveform].present?
+      end
+    end
+
+    def preview(**options)
+      waveform = blob.metadata.fetch(:waveform, [])
+      width, height = 640, 240
+      center = height / 2
+
+      png = ChunkyPNG::Image.new(width, height, ChunkyPNG::Color::WHITE)
+      frame_width = waveform.size / width
+
+      waveform.each_with_index do |v, idx|
+        next unless idx % frame_width == 0
+        x = idx / frame_width
+        y_val = (v * center).to_i
+        png.rect(x, center - y_val, x, center + y_val,
+                 0x4b0082ff, 0x4b0082ff)
+      end
+
+      io = StringIO.new
+      png.write(io)
+      io.rewind
+
+      yield io: io,
+            filename: "#{blob.filename.base}.png",
+            content_type: "image/png",
+            **options
+    end
+  end
+end
+```
+
+### Registration
+
+Same pattern as analyzers — `prepend` to take priority over built-in
+previewers:
+
+```ruby
+# config/initializers/active_storage.rb
+Rails.application.config.active_storage.previewers.prepend(
+  ActiveStorage::WaveformPreviewer
+)
+```
+
+### Display in Templates
+
+Call `preview` like you would `variant`:
+
+```erb
+<%= image_tag song.recording.preview(resize_to_fill: [640, 160]) %>
+```
+
+**When to reach for this:**
+
+- **Previewers** — non-image media needs a visual representation (audio
+  waveform PNG, video thumbnail, PDF first-page image).
+- **Analyzers** — you need metadata extracted, not a visual preview.

@@ -1,5 +1,8 @@
 # Architecture Review Reference
 
+For design principles (SRP, OCP, DIP, Composition over Inheritance, etc.)
+and their mapping to smells, see `shared/principles.md`.
+
 For the layered architecture model (Presentation → Application → Domain →
 Infrastructure) and layer placement rules, see `shared/architecture.md`.
 
