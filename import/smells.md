@@ -142,6 +142,7 @@ belongs_to :creator, class_name: "User", default: -> { Current.user }
 
 **Signal:** `Current.*` used *inside* a method body with no way for the caller
 to override it. Default arguments and `belongs_to` defaults are acceptable.
+See `shared/current_attributes.md` for acceptable uses, multi-tenancy, and testing patterns.
 
 ### Feature Envy
 A method that's more interested in another object's data than its own.
