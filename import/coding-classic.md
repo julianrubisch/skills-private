@@ -220,6 +220,19 @@ class Card < ApplicationRecord
 end
 ```
 
+### Association Design
+
+Prefer the loosest coupling that fits the domain:
+
+| Instead of | Prefer | When |
+|------------|--------|------|
+| `has_and_belongs_to_many` | `has_many :through` | Join model needs attributes or callbacks |
+| 1:N (`has_many`) | M:N (`has_many :through`) | Relationship may grow (e.g., user → roles) |
+| `polymorphic: true` | `delegated_type` | Type-safe variants with different schemas |
+
+Always set `:dependent` on `has_many`/`has_one`. Use `:inverse_of` when
+Rails can't infer it (custom foreign keys, `:through`).
+
 ---
 
 ## Controllers
