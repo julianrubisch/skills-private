@@ -266,6 +266,9 @@ end
 
 ### Turbo Stream Responses
 
+See `shared/hotwire.md` for the full Hotwire reference (streams, frames,
+broadcasts, morphing) and `hwc-*` skills for deep dives.
+
 ```ruby
 class Cards::ClosuresController < ApplicationController
   include CardScoped

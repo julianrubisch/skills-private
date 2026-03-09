@@ -7,8 +7,8 @@ also referenced in their respective sections of `patterns.md` and `shared/`.
 
 | Gem | Purpose |
 |-----|---------|
-| [turbo-rails](https://github.com/hotwired/turbo-rails) | Turbo Drive, Frames, Streams — SPA-like navigation without JS |
-| [stimulus-rails](https://github.com/hotwired/stimulus-rails) | Modest JS framework for Hotwire apps |
+| [turbo-rails](https://github.com/hotwired/turbo-rails) | Turbo Drive, Frames, Streams — SPA-like navigation without JS (see `shared/hotwire.md`) |
+| [stimulus-rails](https://github.com/hotwired/stimulus-rails) | Modest JS framework for Hotwire apps (see `shared/hotwire.md`) |
 | [phlex-rails](https://github.com/phlex-ruby/phlex-rails) | Ruby component framework replacing ERB (see `coding-phlex.md`) |
 | [phlex_custom_element_generator](https://github.com/konnorrogers/phlex_custom_element_generator) | Auto-generate Phlex wrappers from custom element manifests |
 | [vite_rails](https://github.com/ElMassimo/vite_ruby) | Vite integration for Rails — fast HMR, modern bundling |
