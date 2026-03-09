@@ -389,6 +389,43 @@ end
 
 ---
 
+## View Helpers
+
+### Date Formatting
+
+Define custom formats in an initializer — never `strftime` in views:
+
+```ruby
+# config/initializers/date_formats.rb
+Date::DATE_FORMATS[:default]   = "%d.%m.%Y"           # 10.11.2025
+Date::DATE_FORMATS[:month_year] = "%B %Y"              # November 2025
+Date::DATE_FORMATS[:short_de]  = "%-d. %b %Y"         # 10. Nov 2025
+
+Time::DATE_FORMATS[:default]   = "%d.%m.%Y %H:%M"     # 10.11.2025 14:30
+Time::DATE_FORMATS[:time_only] = "%H:%M"               # 14:30
+```
+
+```erb
+<%# In views — use to_fs or l() for locale-aware formatting %>
+<%= @post.created_at.to_fs(:short_de) %>
+<%= l @post.created_at, format: :short %>
+```
+
+### Navigation Links
+
+Use the `active_link_to` gem instead of hand-rolling active-state helpers:
+
+```ruby
+# Gemfile
+gem "active_link_to"
+
+# In views — auto-applies "active" class based on current URL
+<%= active_link_to "Users", users_path %>
+<%= active_link_to "Dashboard", root_path, active: :exclusive %>
+```
+
+---
+
 ## Testing
 
 Preferences only — full testing guide in `shared/testing.md`.

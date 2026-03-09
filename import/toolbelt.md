@@ -14,6 +14,7 @@ also referenced in their respective sections of `patterns.md` and `shared/`.
 | [vite_rails](https://github.com/ElMassimo/vite_ruby) | Vite integration for Rails — fast HMR, modern bundling |
 | [propshaft](https://github.com/rails/propshaft) | Vanilla Rails asset pipeline (alternative to vite_rails) |
 | [importmap-rails](https://github.com/rails/importmap-rails) | Import maps — no bundler needed for simple JS |
+| [active_link_to](https://github.com/comfy/active_link_to) | Navigation helper with automatic active-state detection (inclusive, exclusive, regex matching) |
 
 ## Authorization & Identity
 
