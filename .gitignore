@@ -1,2 +1,6 @@
 .*.~undo-tree~
-*.md~
+*~
+#*#
+.#*
+dist/
+dist-public/

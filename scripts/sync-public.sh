@@ -20,25 +20,36 @@ echo "==> Building public distribution..."
 "$SCRIPT_DIR/publish.sh" --public "$DIST_DIR"
 
 echo "==> Cloning $PUBLIC_REPO..."
-gh repo clone "$PUBLIC_REPO" "$WORK_DIR/skills" -- --depth 1
+gh repo clone "$PUBLIC_REPO" "$WORK_DIR/skills" -- --depth 1 2>&1 || true
+
+# Ensure target directory exists (empty repos may not create it properly)
+mkdir -p "$WORK_DIR/skills"
+
+# Initialize if empty clone didn't set up git
+if [ ! -d "$WORK_DIR/skills/.git" ]; then
+  cd "$WORK_DIR/skills"
+  git init
+  git remote add origin "git@github.com:$PUBLIC_REPO.git"
+  git checkout -b main
+else
+  cd "$WORK_DIR/skills"
+fi
 
 echo "==> Syncing files..."
 # Remove old content (preserve .git)
-find "$WORK_DIR/skills" -maxdepth 1 -not -name '.git' -not -name '.' -not -name '..' -exec rm -rf {} +
+find . -maxdepth 1 -not -name '.git' -not -name '.' -not -name '..' -exec rm -rf {} +
 
 # Copy new content
-cp -r "$DIST_DIR"/* "$WORK_DIR/skills/"
-
-cd "$WORK_DIR/skills"
+cp -r "$DIST_DIR"/. .
 
 # Check for changes
-if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+if git diff --quiet 2>/dev/null && [ -z "$(git ls-files --others --exclude-standard)" ]; then
   echo "==> No changes to sync"
   exit 0
 fi
 
 git add -A
 git commit -m "Sync from private repo @ $SHORT_SHA"
-git push
+git push -u origin main
 
 echo "==> Synced to $PUBLIC_REPO @ $SHORT_SHA"

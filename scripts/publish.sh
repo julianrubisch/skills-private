@@ -41,6 +41,14 @@ if [ "$PUBLIC" = true ]; then
     for pattern in "${PRIVATE_REFERENCE_PATTERNS[@]}"; do
       find "$OUTPUT_DIR/$skill/reference" -name "$pattern" -delete 2>/dev/null || true
     done
+
+    # Remove editor backup/undo files that cp -rL picks up
+    find "$OUTPUT_DIR/$skill" \( \
+      -name "*.~undo-tree~" -o \
+      -name "*~" -o \
+      -name "#*#" -o \
+      -name ".#*" \
+    \) -delete 2>/dev/null || true
   done
 
   # Generate marketplace.json
