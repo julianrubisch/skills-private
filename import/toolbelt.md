@@ -1,0 +1,79 @@
+# Gem Toolbelt
+
+Categorized gem recommendations across projects. Pattern-specific gems are
+also referenced in their respective sections of `patterns.md` and `shared/`.
+
+## Frontend
+
+| Gem | Purpose |
+|-----|---------|
+| [turbo-rails](https://github.com/hotwired/turbo-rails) | Turbo Drive, Frames, Streams — SPA-like navigation without JS |
+| [stimulus-rails](https://github.com/hotwired/stimulus-rails) | Modest JS framework for Hotwire apps |
+| [phlex-rails](https://github.com/phlex-ruby/phlex-rails) | Ruby component framework replacing ERB (see `coding-phlex.md`) |
+| [phlex_custom_element_generator](https://github.com/konnorrogers/phlex_custom_element_generator) | Auto-generate Phlex wrappers from custom element manifests |
+| [vite_rails](https://github.com/ElMassimo/vite_ruby) | Vite integration for Rails — fast HMR, modern bundling |
+| [propshaft](https://github.com/rails/propshaft) | Vanilla Rails asset pipeline (alternative to vite_rails) |
+| [importmap-rails](https://github.com/rails/importmap-rails) | Import maps — no bundler needed for simple JS |
+
+## Authorization & Identity
+
+| Gem | Purpose |
+|-----|---------|
+| [pundit](https://github.com/varvet/pundit) | Policy-based authorization (see `patterns.md § Policy Objects`) |
+
+## State & Workflow
+
+| Gem | Purpose |
+|-----|---------|
+| [aasm](https://github.com/aasm/aasm) | State machines with guards, callbacks, ActiveRecord integration (see `shared/state_machines.md`) |
+| [flipper](https://github.com/flippercloud/flipper) | Feature flags — inline `if Flipper.enabled?(:feature)` |
+
+## Data & Queries
+
+| Gem | Purpose |
+|-----|---------|
+| [pagy](https://github.com/ddnexus/pagy) | Fast, lightweight pagination |
+| [has_scope](https://github.com/heartcombo/has_scope) | Declarative param-to-scope mapping in controllers (see `patterns.md § Filter Objects`) |
+| [arel-helpers](https://github.com/camertron/arel-helpers) | Reduce Arel boilerplate for complex JOINs |
+
+## Serialization & Caching
+
+| Gem | Purpose |
+|-----|---------|
+| [universalid](https://github.com/hopsoft/universalid) | Serialize any Ruby object (including AR models with unsaved changes) into compact, URL-safe strings — useful for passing complex state through URLs or preserving form state |
+| [composite_cache_store](https://github.com/hopsoft/composite_cache_store) | Multi-layered cache combining fast in-process memory with slower shared remote caches — optimizes hot paths without custom plumbing |
+
+## Forms & Callbacks
+
+| Gem | Purpose |
+|-----|---------|
+| [after_commit_everywhere](https://github.com/Envek/after_commit_everywhere) | `after_commit` callbacks outside ActiveRecord — used in form objects (see `patterns.md § Form Objects`) |
+
+## Infrastructure & Ops
+
+| Gem | Purpose |
+|-----|---------|
+| [solid_queue](https://github.com/rails/solid_queue) | Database-backed job queue — no Redis needed |
+| [solid_cache](https://github.com/rails/solid_cache) | Database-backed cache store |
+| [solid_cable](https://github.com/rails/solid_cable) | Database-backed Action Cable adapter |
+| [kamal](https://github.com/basecamp/kamal) | Zero-downtime deploys via Docker |
+| [thruster](https://github.com/basecamp/thruster) | HTTP/2 proxy with asset caching and compression for Puma |
+| [autotuner](https://github.com/Shopify/autotuner) | Rack middleware that analyzes GC behavior at runtime and suggests concrete tuning parameters |
+
+## Development & Debugging
+
+| Gem | Purpose |
+|-----|---------|
+| [model_probe](https://github.com/hopsoft/model_probe) | Schema visualization and code generation for ActiveRecord models — quick inspection of table structure and relationships |
+
+## Gem Selection Heuristics
+
+> From `coding-classic.md`:
+
+1. **Can vanilla Rails do this?** — ActiveRecord, ActionMailer, ActiveJob cover most needs
+2. **Is it the app's core concern?** — if yes, own the code; if fringe, use a gem
+3. **Does it add infrastructure?** — Redis? Database-backed alternatives exist
+4. **Is the complexity worth it?** — 150 lines of custom code vs. a 10k-line gem
+5. **Is it from someone you trust?** — 37signals, Shopify, Heartcombo gems are battle-tested
+
+> "Build solutions before reaching for gems."
