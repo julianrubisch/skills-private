@@ -306,10 +306,15 @@ class ApplicationForm
   extend ActiveModel::Callbacks
 
   define_model_callbacks :save, only: :after
+  define_model_callbacks :commit, only: :after
 
   class << self
     def after_save(...)
       set_callback(:save, :after, ...)
+    end
+
+    def after_commit(...)
+      set_callback(:commit, :after, ...)
     end
 
     # Quack like ActiveRecord for route helpers and form_with
@@ -322,7 +327,10 @@ class ApplicationForm
   def save
     return false unless valid?
 
-    with_transaction { run_callbacks(:save) { submit! } }
+    with_transaction do
+      AfterCommitEverywhere.after_commit { run_callbacks(:commit) }
+      run_callbacks(:save) { submit! }
+    end
   end
 
   private
@@ -336,6 +344,29 @@ class ApplicationForm
     raise NotImplementedError
   end
 end
+```
+
+**Callback distinction:**
+- `after_save` — runs inside the transaction (create related records, update counters)
+- `after_commit` — runs after transaction commits (send emails, enqueue jobs).
+  Requires [`after_commit_everywhere`](https://github.com/Envek/after_commit_everywhere) gem.
+
+### Factory Method
+
+Each form defines a `.for` class method that permits its own params — keeps
+strong parameter logic co-located with the form:
+
+```ruby
+class ContactForm < ApplicationForm
+  class << self
+    def for(params)
+      new(params.permit(:name, :email, :should_send_welcome_email, :follow_up))
+    end
+  end
+end
+
+# Controller usage:
+@form = ContactForm.for(params[:contact])
 ```
 
 ### Concrete Form Object
@@ -352,7 +383,13 @@ class ContactForm < ApplicationForm
   validates :email, presence: true
   validate :contact_is_valid
 
-  after_save :deliver_welcome_email!, if: :should_send_welcome_email
+  after_commit :deliver_welcome_email!, if: :should_send_welcome_email
+
+  class << self
+    def for(params)
+      new(params.permit(:name, :email, :should_send_welcome_email, :follow_up))
+    end
+  end
 
   delegate :to_param, :id, to: :contact, allow_nil: true
 
@@ -379,18 +416,118 @@ class ContactForm < ApplicationForm
 end
 ```
 
+### Multi-Model Form
+
+```ruby
+class RegistrationForm < ApplicationForm
+  attribute :name, :string
+  attribute :email, :string
+  attribute :project_name, :string
+  attribute :should_create_project, :boolean
+
+  validates :project_name, presence: true, if: :should_create_project
+  validate :user_is_valid
+
+  attr_reader :user
+
+  after_save :create_initial_project, if: :should_create_project
+
+  def initialize(...)
+    super
+    @user = User.new(email:, name:)
+  end
+
+  private
+
+  def submit!
+    user.save!
+  end
+
+  def create_initial_project
+    user.projects.create!(name: project_name)
+  end
+
+  def user_is_valid
+    return if user.valid?
+    user.errors.each do |error|
+      errors.add(error.attribute, error.message)
+    end
+  end
+end
+```
+
+### Model-less Form
+
+```ruby
+class FeedbackForm < ApplicationForm
+  attribute :message, :string
+  attribute :email, :string
+  attribute :category, :string
+
+  validates :message, presence: true, length: { minimum: 10 }
+  validates :email, presence: true
+
+  after_commit :deliver_feedback
+
+  private
+
+  def submit!
+    true  # No model to save
+  end
+
+  def deliver_feedback
+    FeedbackMailer.new_feedback(email:, message:, category:).deliver_later
+  end
+end
+```
+
+### Wizard Forms (Multi-Step)
+
+Use a state machine for complex multi-step forms. Validate only the current step:
+
+```ruby
+class OnboardingForm < ApplicationForm
+  include Workflow
+
+  workflow do
+    state :profile do
+      event :next, transitions_to: :preferences
+    end
+    state :preferences do
+      event :next, transitions_to: :confirmation
+      event :back, transitions_to: :profile
+    end
+    state :confirmation do
+      event :back, transitions_to: :preferences
+    end
+  end
+
+  validates :name, presence: true, if: :profile?
+  validates :email, presence: true, if: :profile?
+  validates :theme, presence: true, if: :preferences?
+
+  def submit!
+    return true unless confirmation?
+    User.create!(attributes.except(:workflow_state))
+  end
+end
+```
+
 ### Usage in Controller and View
 
 ```ruby
 # Controller — same shape as a model-backed controller
 class ContactsController < ApplicationController
-  def new    = @contact_form = ContactForm.new
+  def new
+    @contact_form = ContactForm.new
+  end
+
   def create
-    @contact_form = ContactForm.new(contact_params)
+    @contact_form = ContactForm.for(params[:contact])
     if @contact_form.save
       redirect_to @contact_form   # routes to /contacts/:id via model_name
     else
-      render :new
+      render :new, status: :unprocessable_entity
     end
   end
 end
@@ -404,6 +541,47 @@ end
   <%= f.check_box :should_send_welcome_email %>
 <% end %>
 ```
+
+### Anti-patterns
+
+**Duplicating model validations:**
+
+```ruby
+# BAD — duplicates User validation
+class UserForm < ApplicationForm
+  validates :email, presence: true, uniqueness: true
+end
+
+# GOOD — delegate to model, merge errors
+class UserForm < ApplicationForm
+  validate :user_is_valid
+
+  def user_is_valid
+    return if user.valid?
+    user.errors.each { |e| errors.add(e.attribute, e.message) }
+  end
+end
+```
+
+**UI logic in model callbacks:**
+
+```ruby
+# BAD — model callback for UI-specific behavior
+class User < ApplicationRecord
+  after_create :send_welcome_email, if: :from_registration_form?
+end
+
+# GOOD — form handles UI-specific side effects
+class RegistrationForm < ApplicationForm
+  after_commit :send_welcome_email
+end
+```
+
+### Related Gems
+
+| Gem | Purpose |
+|-----|---------|
+| [after_commit_everywhere](https://github.com/Envek/after_commit_everywhere) | `after_commit` callbacks outside Active Record |
 
 **When:** form spans multiple models, has virtual fields, validation rules are
 specific to one UI flow, or the model carries transient attributes / side-effect
