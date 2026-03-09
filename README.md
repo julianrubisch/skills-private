@@ -56,7 +56,7 @@ reference/
 
 ## Installation (Local)
 
-Each skill lives in `skills/<name>/` and contains a `Skill.md` plus a
+Each skill lives in `skills/<name>/` and contains a `SKILL.md` plus a
 `reference` symlink pointing to `../../reference/`. To install a skill:
 
 ```bash
