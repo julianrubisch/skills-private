@@ -7,7 +7,8 @@ in other models, calling external services. The side effect is invisible to the
 caller and fires even when triggered by unrelated saves.
 
 See also: `coding-classic.md § Callbacks` for when callbacks are appropriate
-(own-state changes, async dispatch via jobs).
+(own-state changes, async dispatch via jobs), and `shared/callbacks.md` for the
+scoring system and extraction patterns.
 
 ## Before
 ```ruby

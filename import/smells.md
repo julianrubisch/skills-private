@@ -224,7 +224,8 @@ Conditionally-invoked callbacks that only apply in some contexts.
 
 **Fix:** [Replace Callback with Method](refactorings/009-replace-callback-with-method.md), [Introduce Form Object](refactorings/004-introduce-form-object.md).
 For multiple subscribers: event bus (`Rails.event` 8.1+ / `ActiveSupport::Notifications`).
-See `refactorings/extraction-signals.md § Event-driven extraction`.
+See `refactorings/extraction-signals.md § Event-driven extraction` and
+`shared/callbacks.md` for the scoring system and extraction walkthrough.
 
 **Exception:** Own-state callbacks are fine — `before_save :normalize_email`,
 `before_save :update_search_index, if: :title_changed?`. Async job dispatch is

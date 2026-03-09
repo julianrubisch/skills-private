@@ -5,6 +5,9 @@ This is the triage guide — individual refactoring files say *how*, this says *
 
 ## Callback Scoring System
 
+> See `shared/callbacks.md` for the full callback reference with detailed
+> examples, anti-patterns, and extraction walkthrough.
+
 Rate model callbacks to identify extraction candidates:
 
 | Score | Type | Description | Action |
