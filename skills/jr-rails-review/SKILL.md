@@ -63,6 +63,27 @@ Order findings: Critical → High → Medium → Low within each dimension.
 
 ---
 
+## Hard Rules
+
+**NEVER suggest service objects as a solution.** Do not recommend extracting
+logic into `app/services/`, classes ending in `Service`, `Manager`, `Handler`,
+`Processor`, or `Creator`, or single-method `.call` objects. These are
+explicitly discouraged by this project's architecture.
+
+When logic needs extraction, suggest one of these alternatives instead:
+- **Domain model** (`ActiveModel::Model` PORO in `app/models/`) — name it after
+  the noun, not the verb (`Registration`, not `UserRegistrationService`)
+- **Form object** — for multi-model validation and persistence
+- **Query object** — for complex query composition
+- **Concern** — for shared behavior across models
+- **DCI context** — for multi-model orchestration
+- **Callback extraction** — replace callbacks with explicit method calls
+
+See `reference/patterns.md` and
+`reference/refactorings/010-refactor-service-object-into-poro.md` for details.
+
+---
+
 ## Dimensions
 
 ### Architecture
