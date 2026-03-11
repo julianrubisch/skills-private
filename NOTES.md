@@ -341,12 +341,12 @@ should prefer higher-priority refactorings when multiple apply.
 ## Worktree + Devcontainer for Agentic Coding — ✅ DONE
 
 Implemented in `reference/agentic-worktrees.md` with:
-- Worktrunk config (`.config/wt.toml`) with hooks and env passthrough
-- Three binstubs: `bin/agent-setup`, `bin/agent-server`, `bin/agent-archive`
-- CRC32-based port allocation (10 ports per workspace)
-- Docker Compose per-workspace isolation
+- Worktrunk config (`.config/wt.toml`) with `[post-create]`, `[pre-remove]`, `[post-remove]`, `[post-start]` hooks
+- Three binstubs: `bin/agent-setup`, `bin/agent-server`, `bin/agent-cleanup`
+- Port allocation via worktrunk's `hash_port` filter (10000–19999)
+- Three strategies: SQLite, PostgreSQL port-based, PostgreSQL + Docker Compose
 - Devcontainer variant (`.devcontainer/agent.json`)
-- Database isolation via workspace-suffixed DB names
+- Database isolation via workspace-prefixed files (SQLite) or suffixed DB names (PostgreSQL)
 - Cross-referenced from `devops.md` and expanded in `jr-rails-new` SKILL.md step 3g
 
 ---
