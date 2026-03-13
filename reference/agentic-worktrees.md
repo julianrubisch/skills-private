@@ -612,9 +612,19 @@ dependencies often add them later. Prefer yarn as the package manager:
 Without this, `bin/dev` will fail when the Vite/esbuild process tries to start.
 
 **Process manager must be installed.** The base image does not include
-`overmind` or `foreman`, which `bin/dev` (via `Procfile.dev`) requires. Either:
+`overmind` or `foreman`, which `bin/dev` (via `Procfile.dev`) requires.
+Preferred approach — install overmind in the Dockerfile (requires tmux):
 
-- Install in the Dockerfile: `RUN apt-get install -y overmind` (or
-  `brew install overmind` if using Homebrew in the container)
-- Add as a gem: `gem "foreman"` in the Gemfile (development group)
-- Use `foreman` via `gem install foreman` in `postCreateCommand`
+```dockerfile
+# Install overmind process manager (requires tmux)
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends tmux \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -Lo /tmp/overmind.gz https://github.com/DarthSim/overmind/releases/download/v2.5.1/overmind-v2.5.1-linux-arm64.gz \
+    && gunzip -c /tmp/overmind.gz > /usr/local/bin/overmind \
+    && chmod +x /usr/local/bin/overmind \
+    && rm /tmp/overmind.gz
+USER vscode
+```
+
+Alternatively, add `gem "foreman"` to the Gemfile (development group).
