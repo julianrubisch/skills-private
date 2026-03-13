@@ -568,10 +568,53 @@ agent-specific variant. Create `.devcontainer/agent.json`:
   "postCreateCommand": "bin/agent-setup",
   "features": {
     "ghcr.io/devcontainers/features/ruby:1": {},
-    "ghcr.io/devcontainers/features/node:1": {}
+    "ghcr.io/devcontainers/features/node:1": { "installYarn": true }
   }
 }
 ```
 
 This forwards all `AGENT_*` env vars into the container, so port allocation
 and database isolation work identically inside or outside containers.
+
+### Devcontainer Gotchas
+
+**`forwardPorts` only works in VS Code.** When using `devcontainer up` from the
+CLI (e.g. for headless agent sessions), `forwardPorts` in `devcontainer.json`
+is silently ignored. You must expose ports via `ports:` in `compose.yaml`
+instead. This applies to Rails, Vite, PostgreSQL, Redis — anything that needs
+to be reachable from the host.
+
+**Node.js must be added explicitly.** The Rails devcontainer base image does not
+include Node.js. If the project uses `vite_rails`, `esbuild`, or any npm/yarn
+packages, add the Node.js feature:
+
+```json
+{
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {}
+  }
+}
+```
+
+Always include this feature by default — even projects that start without JS
+dependencies often add them later. Prefer yarn as the package manager:
+
+```json
+{
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "installYarn": true
+    }
+  }
+}
+```
+
+Without this, `bin/dev` will fail when the Vite/esbuild process tries to start.
+
+**Process manager must be installed.** The base image does not include
+`overmind` or `foreman`, which `bin/dev` (via `Procfile.dev`) requires. Either:
+
+- Install in the Dockerfile: `RUN apt-get install -y overmind` (or
+  `brew install overmind` if using Homebrew in the container)
+- Add as a gem: `gem "foreman"` in the Gemfile (development group)
+- Use `foreman` via `gem install foreman` in `postCreateCommand`
