@@ -198,7 +198,13 @@ variant that matches the stack:
 |----------|--------------|----------|-------------------|
 | `sqlite3` | any | SQLite | § Binstubs — SQLite |
 | `postgresql` / `mysql2` | no | Port-based | § Binstubs — PostgreSQL (port-based) |
-| `postgresql` / `mysql2` | yes | Docker Compose | § Binstubs — PostgreSQL + Docker Compose |
+| `postgresql` / `mysql2` | yes (per-worktree) | Per-worktree devcontainer | § Binstubs — PostgreSQL + Docker Compose (Per-Worktree Devcontainer) |
+| `postgresql` / `mysql2` | yes (shared PG) | Shared PG | § Binstubs — PostgreSQL + Docker Compose (Shared PG) |
+
+The **shared PG** strategy is simpler: one PostgreSQL container shared across
+all worktrees, Rails runs on the host. Prefer this when the host already has
+Ruby (via mise/rbenv/asdf) and you want worktrees to run tests independently
+without `devcontainer exec`.
 
 **3. Modify `config/database.yml`** to use workspace-aware names:
 

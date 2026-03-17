@@ -6,14 +6,17 @@ and port range — without stepping on other agents or your main dev environment
 ## Overview
 
 Each agent gets a **git worktree** (managed by [worktrunk](https://worktrunk.dev))
-with isolated infrastructure: its own database and port range. Three isolation
+with isolated infrastructure: its own database and port range. Four isolation
 strategies depending on your stack:
 
 1. **SQLite** — workspace-prefixed SQLite files in `storage/`, no containers
 2. **PostgreSQL (port-based)** — workspace-suffixed database names with port
    offsets, services on the host
-3. **PostgreSQL + Docker Compose** — each worktree spins up its own containers
-   with workspace-prefixed names and port offsets
+3. **PostgreSQL + Docker Compose (per-worktree devcontainer)** — each worktree
+   spins up its own devcontainer stack with parameterized compose, random ports,
+   and `bin/agent-exec` for running commands inside the container
+4. **PostgreSQL + Docker Compose (shared PG)** — one PostgreSQL container shared
+   across all worktrees, isolation via database naming. Rails runs on the host.
 
 ### Prerequisites
 
@@ -270,12 +273,49 @@ development:
     password: postgres
 ```
 
-## Binstubs — PostgreSQL + Docker Compose
+## Binstubs — PostgreSQL + Docker Compose (Per-Worktree Devcontainer)
 
-For Docker Compose, `bin/agent-setup` still needs to compute ports for
-container port mapping. The `hash_port` algorithm is replicated in bash:
+Each worktree gets its own devcontainer stack with isolated containers, volumes,
+and ports. The `.devcontainer/compose.yaml` is parameterized with env vars so
+the same file works for both the primary worktree and agent worktrees.
+
+### `.devcontainer/compose.yaml` changes
+
+Parameterize the compose file so each worktree gets its own project name,
+volume mount, and port bindings:
+
+```yaml
+name: "${COMPOSE_PROJECT_NAME:-myapp}"
+# Each worktree uses "myapp_<branch>" so containers don't collide.
+
+services:
+  rails-app:
+    volumes:
+      - ${WORKTREE_PATH:-..}:/workspaces/myapp:cached
+      # Uses WORKTREE_PATH (absolute path to worktree) or defaults to ".."
+      # (primary worktree). Always mounts at /workspaces/myapp for consistency.
+
+    ports:
+      - "${APP_PORT:-3000}:3000"
+      - "${VITE_PORT:-3036}:3036"
+      # Each worktree uses random ports (APP_PORT=0) to avoid collisions.
+      # Primary keeps defaults 3000/3036.
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
+```
 
 ### `bin/agent-setup`
+
+Spins up a per-worktree devcontainer, waits for PostgreSQL, then runs setup
+inside the container:
 
 ```bash
 #!/bin/bash
@@ -283,16 +323,9 @@ set -euo pipefail
 
 WORKSPACE="${AGENT_WORKSPACE:?AGENT_WORKSPACE must be set}"
 ROOT="${AGENT_ROOT_PATH:?AGENT_ROOT_PATH must be set}"
-
-# Compute port range from workspace name (matches worktrunk's hash_port)
-CRC=$(printf '%s' "$WORKSPACE" | cksum | cut -d' ' -f1)
-export AGENT_PORT=$(( (CRC % 10000) + 10000 ))
-export AGENT_DB_PORT=$(( AGENT_PORT + 2 ))
-export AGENT_REDIS_PORT=$(( AGENT_PORT + 3 ))
-export AGENT_CHROME_PORT=$(( AGENT_PORT + 4 ))
+WORKTREE_PATH="$(pwd)"
 
 echo "==> Agent workspace: $WORKSPACE"
-echo "==> Port range: $AGENT_PORT - $(( AGENT_PORT + 9 ))"
 
 # Symlink shared resources from main worktree
 ln -sf "$ROOT/.env" .env 2>/dev/null || true
@@ -305,35 +338,169 @@ mkdir -p config/credentials
 cp "$ROOT"/config/credentials/*.key config/credentials/ 2>/dev/null || true
 cp "$ROOT"/config/master.key config/ 2>/dev/null || true
 
-# Start workspace containers
-docker compose up -d
+# Start isolated devcontainer for this worktree
+export COMPOSE_PROJECT_NAME="myapp_${WORKSPACE}"
+export WORKTREE_PATH
+export APP_PORT=0    # random available port
+export VITE_PORT=0
 
-# Install dependencies and set up database
-bin/setup --skip-server
+docker compose -f "$ROOT/.devcontainer/compose.yaml" up -d --build
 
-echo "==> Workspace $WORKSPACE ready on port $AGENT_PORT"
+# Wait for postgres to be ready
+echo "==> Waiting for PostgreSQL..."
+until docker compose -f "$ROOT/.devcontainer/compose.yaml" exec -T postgres pg_isready -U postgres > /dev/null 2>&1; do
+  sleep 1
+done
+
+# Set up database inside the container
+docker compose -f "$ROOT/.devcontainer/compose.yaml" exec -u vscode -w /workspaces/myapp -T rails-app bash -ic "bin/setup --skip-server"
+
+echo "==> Workspace $WORKSPACE ready"
 ```
 
-### `bin/agent-server`
+### `bin/agent-cleanup`
+
+Tears down the worktree's container stack. Auto-detects ROOT from git if
+`AGENT_ROOT_PATH` isn't set:
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 
+WORKSPACE="${AGENT_WORKSPACE:?AGENT_WORKSPACE must be set}"
+ROOT="${AGENT_ROOT_PATH:-$(git -C "$(dirname "$0")/.." worktree list --porcelain | head -1 | cut -d' ' -f2)}"
+
+echo "==> Cleaning up workspace: $WORKSPACE"
+
+# Tear down the worktree's devcontainer stack
+export COMPOSE_PROJECT_NAME="myapp_${WORKSPACE}"
+docker compose -f "$ROOT/.devcontainer/compose.yaml" down -v 2>/dev/null || true
+
+# Remove symlinks
+rm -f .env .bundle node_modules storage 2>/dev/null || true
+
+echo "==> Workspace $WORKSPACE cleaned up"
+```
+
+### `bin/agent-exec`
+
+Convenience script to run commands inside a worktree's container. Auto-detects
+the branch name and primary worktree path:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# Run a command inside this worktree's devcontainer.
+# Usage: bin/agent-exec bin/rails test
+#        bin/agent-exec bin/ci
+#        bin/agent-exec bin/rubocop -a
+
 WORKSPACE="${AGENT_WORKSPACE:-$(git branch --show-current)}"
-export AGENT_WORKSPACE="$WORKSPACE"
+ROOT="$(git worktree list --porcelain | head -1 | cut -d' ' -f2)"
 
-# Accept PORT from env (e.g. set by worktrunk's hash_port), or fall back to 3000
-export PORT="${PORT:-3000}"
-export VITE_RUBY_PORT="${VITE_RUBY_PORT:-$(( PORT + 1 ))}"
+export COMPOSE_PROJECT_NAME="myapp_${WORKSPACE}"
+export WORKTREE_PATH="$(pwd)"
 
-# Compute DB port for Docker container mapping
-CRC=$(printf '%s' "$WORKSPACE" | cksum | cut -d' ' -f1)
-AGENT_PORT=$(( (CRC % 10000) + 10000 ))
-export DATABASE_URL="postgres://postgres:postgres@localhost:$(( AGENT_PORT + 2 ))/myapp_${WORKSPACE}"
+docker compose -f "$ROOT/.devcontainer/compose.yaml" \
+  exec -u vscode -w /workspaces/myapp -T rails-app \
+  bash -ic "$*"
+```
 
-echo "==> Starting $WORKSPACE on port $PORT"
-exec bin/dev
+### CLAUDE.md addition
+
+Document `bin/agent-exec` as the way to run tests/CI in worktrees:
+
+```markdown
+## Running Commands in Worktrees
+
+Use `bin/agent-exec` to run commands inside the worktree's container:
+
+```bash
+bin/agent-exec bin/rails test
+bin/agent-exec bin/ci
+bin/agent-exec bin/rubocop -a
+```
+```
+
+## Binstubs — PostgreSQL + Docker Compose (Shared PG)
+
+When using devcontainers with worktrees, each worktree needs to run
+`bin/rails test` independently. The default devcontainer setup mounts only the
+primary worktree, so secondary worktrees can't run tests inside the container
+without copying files.
+
+The solution: expose PostgreSQL from the devcontainer on a host port. Each
+worktree connects to the same PG instance but uses a workspace-specific database
+name. Rails runs natively on the host (via mise/rbenv/asdf), not inside the
+container.
+
+### Prerequisites
+
+The host must have Ruby + bundler available (via mise, rbenv, or asdf). The
+devcontainer is only used for PostgreSQL (and optionally Selenium for system
+tests).
+
+### `compose.yaml`
+
+Expose PG port to the host:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+```
+
+### `config/database.yml`
+
+The primary worktree (no `AGENT_WORKSPACE` set) gets the default DB names.
+Each worktree gets a suffixed name like `app_name_test_feature-branch`.
+
+```yaml
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: localhost
+  port: 5432
+  username: postgres
+  password: postgres
+
+development:
+  <<: *default
+  database: <%= "app_name_development#{ENV['AGENT_WORKSPACE'] ? '_' + ENV['AGENT_WORKSPACE'] : ''}" %>
+
+test:
+  <<: *default
+  database: <%= "app_name_test#{ENV['AGENT_WORKSPACE'] ? '_' + ENV['AGENT_WORKSPACE'] : ''}" %>
+```
+
+### `bin/agent-setup`
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+WORKSPACE="${AGENT_WORKSPACE:?AGENT_WORKSPACE must be set}"
+ROOT="${AGENT_ROOT_PATH:?AGENT_ROOT_PATH must be set}"
+
+echo "==> Agent workspace: $WORKSPACE"
+
+# Symlink shared resources from main worktree
+ln -sf "$ROOT/.env" .env 2>/dev/null || true
+ln -sf "$ROOT/node_modules" node_modules 2>/dev/null || true
+
+# Ensure PG is running (from primary worktree's compose)
+docker compose -f "$ROOT/.devcontainer/compose.yaml" up -d postgres
+
+# Setup database (runs on host, connects to PG via localhost)
+bin/rails db:create db:migrate
+
+echo "==> Workspace $WORKSPACE ready"
 ```
 
 ### `bin/agent-cleanup`
@@ -345,50 +512,21 @@ set -euo pipefail
 WORKSPACE="${AGENT_WORKSPACE:?AGENT_WORKSPACE must be set}"
 
 echo "==> Cleaning up workspace: $WORKSPACE"
-
-# Drop the workspace database
 bin/rails db:drop 2>/dev/null || true
-
-# Stop containers and remove volumes
-docker compose down -v 2>/dev/null || true
-
-# Remove symlinks
-rm -f .env .bundle node_modules storage 2>/dev/null || true
-
+rm -f .env node_modules 2>/dev/null || true
 echo "==> Workspace $WORKSPACE cleaned up"
 ```
 
-### `compose.yaml` (Docker)
+### Key points
 
-```yaml
-services:
-  db:
-    image: postgres:17
-    container_name: "${AGENT_WORKSPACE:-dev}_db"
-    environment:
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "${AGENT_DB_PORT:-5432}:5432"
-    volumes:
-      - "db_data_${AGENT_WORKSPACE:-dev}:/var/lib/postgresql/data"
-
-  redis:
-    image: redis:7
-    container_name: "${AGENT_WORKSPACE:-dev}_redis"
-    ports:
-      - "${AGENT_REDIS_PORT:-6379}:6379"
-
-  chrome:
-    image: selenium/standalone-chromium
-    container_name: "${AGENT_WORKSPACE:-dev}_chrome"
-    ports:
-      - "${AGENT_CHROME_PORT:-4444}:4444"
-
-volumes:
-  db_data_${AGENT_WORKSPACE:-dev}:
-```
-
-Each workspace gets its own named volume, so databases are fully isolated.
+- PostgreSQL container is shared across all worktrees — only one instance runs
+- Database isolation is via naming, not separate PG instances
+- Rails runs on the host (requires Ruby available via mise/rbenv/asdf)
+- `bin/agent-setup` ensures PG is up before creating the workspace DB
+- The primary worktree can still use `devcontainer exec` for its own workflow
+- `bin/ci` and `bin/rails test` run directly in each worktree, no file copying
+- Subagents spawned with `isolation: "worktree"` or via `wt switch` both work,
+  as long as `AGENT_WORKSPACE` is set
 
 ## Rails Configuration
 
