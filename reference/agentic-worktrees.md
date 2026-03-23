@@ -333,9 +333,9 @@ WORKTREE_PATH="$(pwd)"
 echo "==> Agent workspace: $WORKSPACE"
 
 # Symlink shared resources from main worktree
+# Don't symlink node_modules — postCreateCommand installs inside the container
 ln -sf "$ROOT/.env" .env 2>/dev/null || true
 ln -sf "$ROOT/.bundle" .bundle 2>/dev/null || true
-ln -sf "$ROOT/node_modules" node_modules 2>/dev/null || true
 ln -sf "$ROOT/storage" storage 2>/dev/null || true
 
 # Copy credentials (can't symlink — Rails reads relative to config/)
