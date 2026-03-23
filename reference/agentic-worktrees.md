@@ -314,8 +314,13 @@ volumes:
 
 ### `bin/agent-setup`
 
-Spins up a per-worktree devcontainer, waits for PostgreSQL, then runs setup
-inside the container:
+Uses `devcontainer up` to spin up the container. This ensures devcontainer
+features (Node.js, yarn, etc.) and `containerEnv` (like `DB_HOST`) from
+`devcontainer.json` are applied — raw `docker compose up` would skip those.
+
+The `postCreateCommand` in `devcontainer.json` should run
+`bin/setup --skip-server`, which handles `bundle install`, `yarn install`,
+and `db:prepare` when the container is first created.
 
 ```bash
 #!/bin/bash
@@ -339,21 +344,13 @@ cp "$ROOT"/config/credentials/*.key config/credentials/ 2>/dev/null || true
 cp "$ROOT"/config/master.key config/ 2>/dev/null || true
 
 # Start isolated devcontainer for this worktree
+# devcontainer up applies features, containerEnv, and postCreateCommand
 export COMPOSE_PROJECT_NAME="myapp_${WORKSPACE}"
 export WORKTREE_PATH
 export APP_PORT=0    # random available port
 export VITE_PORT=0
 
-docker compose -f "$ROOT/.devcontainer/compose.yaml" up -d --build
-
-# Wait for postgres to be ready
-echo "==> Waiting for PostgreSQL..."
-until docker compose -f "$ROOT/.devcontainer/compose.yaml" exec -T postgres pg_isready -U postgres > /dev/null 2>&1; do
-  sleep 1
-done
-
-# Set up database inside the container
-docker compose -f "$ROOT/.devcontainer/compose.yaml" exec -u vscode -w /workspaces/myapp -T rails-app bash -ic "bin/setup --skip-server"
+devcontainer up --workspace-folder "$WORKTREE_PATH"
 
 echo "==> Workspace $WORKSPACE ready"
 ```
@@ -384,8 +381,9 @@ echo "==> Workspace $WORKSPACE cleaned up"
 
 ### `bin/agent-exec`
 
-Convenience script to run commands inside a worktree's container. Auto-detects
-the branch name and primary worktree path:
+Convenience script to run commands inside a worktree's container. Uses
+`devcontainer exec` instead of `docker compose exec` so that `containerEnv`
+from `devcontainer.json` is automatically applied:
 
 ```bash
 #!/bin/bash
@@ -396,15 +394,9 @@ set -euo pipefail
 #        bin/agent-exec bin/ci
 #        bin/agent-exec bin/rubocop -a
 
-WORKSPACE="${AGENT_WORKSPACE:-$(git branch --show-current)}"
-ROOT="$(git worktree list --porcelain | head -1 | cut -d' ' -f2)"
+WORKTREE_PATH="$(pwd)"
 
-export COMPOSE_PROJECT_NAME="myapp_${WORKSPACE}"
-export WORKTREE_PATH="$(pwd)"
-
-docker compose -f "$ROOT/.devcontainer/compose.yaml" \
-  exec -u vscode -w /workspaces/myapp -T rails-app \
-  bash -ic "$*"
+devcontainer exec --workspace-folder "$WORKTREE_PATH" bash -ic "$*"
 ```
 
 ### CLAUDE.md addition
@@ -593,7 +585,8 @@ Grant permissions for worktree operations:
       "Bash(git branch *)",
       "Bash(wt *)",
       "Bash(bin/agent-*)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(devcontainer *)"
     ]
   }
 }
@@ -703,7 +696,7 @@ agent-specific variant. Create `.devcontainer/agent.json`:
     "AGENT_REDIS_PORT": "${localEnv:AGENT_REDIS_PORT}",
     "AGENT_CHROME_PORT": "${localEnv:AGENT_CHROME_PORT}"
   },
-  "postCreateCommand": "bin/agent-setup",
+  "postCreateCommand": "bin/setup --skip-server",
   "features": {
     "ghcr.io/devcontainers/features/ruby:1": {},
     "ghcr.io/devcontainers/features/node:1": { "installYarn": true }
@@ -715,6 +708,15 @@ This forwards all `AGENT_*` env vars into the container, so port allocation
 and database isolation work identically inside or outside containers.
 
 ### Devcontainer Gotchas
+
+**Use `devcontainer up`, not `docker compose up`.** When spinning up worktree
+containers, always use `devcontainer up --workspace-folder "$WORKTREE_PATH"`
+instead of raw `docker compose up -d --build`. Only `devcontainer up` applies
+devcontainer features (Node.js, yarn, etc.), `containerEnv` from
+`devcontainer.json` (like `DB_HOST`), and runs `postCreateCommand`. Similarly,
+use `devcontainer exec --workspace-folder "$WORKTREE_PATH"` instead of
+`docker compose exec` to pick up `containerEnv` automatically. Cleanup with
+`docker compose down -v` is fine — there's no `devcontainer down`.
 
 **`forwardPorts` only works in VS Code.** When using `devcontainer up` from the
 CLI (e.g. for headless agent sessions), `forwardPorts` in `devcontainer.json`

@@ -190,7 +190,7 @@ kill-server = "lsof -ti :{{ branch | hash_port }} -sTCP:LISTEN | xargs kill 2>/d
 server = "PORT={{ branch | hash_port }} VITE_RUBY_PORT={{ (branch ~ '-vite') | hash_port }} bin/agent-server"
 ```
 
-**2. Create the three binstubs** from
+**2. Create the binstubs** from
 [reference/agentic-worktrees.md](reference/agentic-worktrees.md), choosing the
 variant that matches the stack:
 
@@ -201,10 +201,14 @@ variant that matches the stack:
 | `postgresql` / `mysql2` | yes (per-worktree) | Per-worktree devcontainer | § Binstubs — PostgreSQL + Docker Compose (Per-Worktree Devcontainer) |
 | `postgresql` / `mysql2` | yes (shared PG) | Shared PG | § Binstubs — PostgreSQL + Docker Compose (Shared PG) |
 
+The **per-worktree devcontainer** strategy uses `devcontainer up` /
+`devcontainer exec` (not raw `docker compose`) so that features, `containerEnv`,
+and `postCreateCommand` from `devcontainer.json` are applied. The
+`postCreateCommand` should be `bin/setup --skip-server`.
+
 The **shared PG** strategy is simpler: one PostgreSQL container shared across
 all worktrees, Rails runs on the host. Prefer this when the host already has
-Ruby (via mise/rbenv/asdf) and you want worktrees to run tests independently
-without `devcontainer exec`.
+Ruby (via mise/rbenv/asdf) and you want worktrees to run tests independently.
 
 **3. Modify `config/database.yml`** to use workspace-aware names:
 
@@ -230,7 +234,8 @@ main devcontainer with `AGENT_*` env vars forwarded into the container.
       "Bash(git branch *)",
       "Bash(wt *)",
       "Bash(bin/agent-*)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(devcontainer *)"
     ]
   }
 }
