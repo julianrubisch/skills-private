@@ -6,13 +6,17 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
-- Add "Type-Checking Dispatch" smell to smells.md with detection signals and
-  decision table (concern vs presenter vs delegated_type)
-- Extend refactoring 002 (Replace Conditional with Polymorphism) with
-  "Where to Put the Extracted Behavior" section — two concrete shapes
-  (controller→presenter, model→concern/delegated_type)
-- Add "The Abstraction Ladder" to architecture.md Rule 2 — concise model→
-  presenter→component→controller tier with "push it down" guidance
+## v1.0.1
+
+- Add "Type-Checking Dispatch" smell with detection signals and decision table
+  (concern vs presenter vs delegated_type)
+- Extend refactoring 002 (Replace Conditional with Polymorphism) with "Where to
+  Put the Extracted Behavior" — two shapes: controller→presenter,
+  model→concern/delegated_type
+- Add "The Abstraction Ladder" to architecture Rule 2 — model→presenter→
+  component→controller with "push it down" guidance
+- Add LSP and ISP to complete SOLID principles coverage
+- Fix marketplace.json schema for Claude Code /plugin install
 
 ## v1.0.0
 
