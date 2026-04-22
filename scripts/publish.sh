@@ -51,39 +51,14 @@ if [ "$PUBLIC" = true ]; then
     \) -delete 2>/dev/null || true
   done
 
-  # Generate marketplace.json
+  # Copy marketplace.json from source (single source of truth)
   mkdir -p "$OUTPUT_DIR/.claude-plugin"
-  cat > "$OUTPUT_DIR/.claude-plugin/marketplace.json" <<'MARKETPLACE'
-{
-  "name": "jr-rails-skills",
-  "description": "Rails coding skills: classic style, Phlex components, app scaffolder",
-  "owner": {
-    "name": "Julian Rubisch",
-    "email": "info@minthesize.com"
-  },
-  "plugins": [
-    {
-      "name": "jr-rails-classic",
-      "source": "./jr-rails-classic",
-      "description": "Write Rails code in 37signals/classic style"
-    },
-    {
-      "name": "jr-rails-new",
-      "source": "./jr-rails-new",
-      "description": "Scaffold a new Rails app with preferred stack"
-    },
-    {
-      "name": "jr-rails-phlex",
-      "source": "./jr-rails-phlex",
-      "description": "Write Phlex views and components for Rails"
-    }
-  ]
-}
-MARKETPLACE
+  cp .claude-plugin/marketplace.json "$OUTPUT_DIR/.claude-plugin/marketplace.json"
 
   # Copy public repo files if they exist
   [ -f LICENSE ] && cp LICENSE "$OUTPUT_DIR/"
   [ -f PUBLIC_README.md ] && cp PUBLIC_README.md "$OUTPUT_DIR/README.md"
+  [ -f CHANGELOG.md ] && cp CHANGELOG.md "$OUTPUT_DIR/"
 
   echo "Public skills published to $OUTPUT_DIR/"
   echo ""
